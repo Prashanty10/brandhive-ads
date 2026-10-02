@@ -13,6 +13,7 @@ import generateRefreshToken from "../Utils/refreshtoken.js";
 
 import bcrypt from "bcrypt";
 import uploadToCloudinary from "../Utils/cloudinary.js";
+import paginate from "../Utils/pagination.js";
 
 export const LoginHandler = async (req, res) => {
   try {
@@ -391,8 +392,20 @@ export const verifyotp = async (req, res) => {
 
 export const ProfileHandler = async (req, res) => {
   try {
-    const { firstName, lastName, mobileNumber, mobile, phoneNumber, city, state, bio, profileImage, location } =
-      req.body;
+    const {
+      firstName,
+      lastName,
+      mobileNumber,
+      mobile,
+      phoneNumber,
+      city,
+      state,
+      bio,
+      profileImage,
+      location,
+      latitude,
+      longitude,
+    } = req.body;
 
     let imageUrl = profileImage || "";
 
@@ -419,8 +432,17 @@ export const ProfileHandler = async (req, res) => {
       isProfileCompleted: true,
     };
 
-    if (location) {
+    if (location && Array.isArray(location.coordinates) && location.coordinates.length === 2) {
       updateFields.location = location;
+    } else if (latitude !== undefined && longitude !== undefined && latitude !== "" && longitude !== "") {
+      const lat = parseFloat(latitude);
+      const lng = parseFloat(longitude);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        updateFields.location = {
+          type: "Point",
+          coordinates: [lng, lat],
+        };
+      }
     }
 
     const user = await User.findByIdAndUpdate(req.user._id, updateFields, {
@@ -717,9 +739,11 @@ export const SwitchRoleHandler = async (req, res) => {
     }
 
     if (!user.roles.includes(normalizedRole)) {
+      const targetLabel = normalizedRole === "seller" ? "Seller" : "Buyer";
       return res.status(403).json({
         success: false,
-        message: `Account does not have ${normalizedRole} role`,
+        hasRole: false,
+        message: `Not registered as ${targetLabel}. You have not registered a ${targetLabel.toLowerCase()} account with this email (${user.email}).`,
       });
     }
 
@@ -747,5 +771,272 @@ export const SwitchRoleHandler = async (req, res) => {
       success: false,
       message: "Internal Server Error",
     });
+  }
+};
+
+export const UpdateBuyerProfileHandler = async (req, res) => {
+  try {
+    const {
+      advertisingPreferences,
+      preferredCategories,
+      preferredLocations,
+      preferredCity,
+      preferredArea,
+      onlineAds,
+      offlineAds,
+    } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    user.buyerProfile = {
+      ...user.buyerProfile,
+      advertisingPreferences: Array.isArray(advertisingPreferences) ? advertisingPreferences : user.buyerProfile?.advertisingPreferences || [],
+      preferredCategories: Array.isArray(preferredCategories) ? preferredCategories : user.buyerProfile?.preferredCategories || [],
+      preferredLocations: Array.isArray(preferredLocations) ? preferredLocations : user.buyerProfile?.preferredLocations || [],
+      preferredCity: preferredCity !== undefined ? preferredCity : user.buyerProfile?.preferredCity || "",
+      preferredArea: preferredArea !== undefined ? preferredArea : user.buyerProfile?.preferredArea || "",
+      onlineAds: onlineAds !== undefined ? Boolean(onlineAds) : user.buyerProfile?.onlineAds ?? true,
+      offlineAds: offlineAds !== undefined ? Boolean(offlineAds) : user.buyerProfile?.offlineAds ?? true,
+    };
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Buyer preferences updated successfully",
+      user,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const UpdateSellerProfileHandler = async (req, res) => {
+  try {
+    const {
+      businessName,
+      businessType,
+      businessDescription,
+      businessAddress,
+      businessCity,
+      businessState,
+      businessPincode,
+      businessPhone,
+      businessEmail,
+      gstNumber,
+      panNumber,
+      sellerCategories,
+      bankDetails,
+    } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    user.sellerProfile = {
+      ...user.sellerProfile,
+      businessName: businessName !== undefined ? businessName : user.sellerProfile?.businessName || "",
+      businessType: businessType !== undefined ? businessType : user.sellerProfile?.businessType || "Individual / Agency",
+      businessDescription: businessDescription !== undefined ? businessDescription : user.sellerProfile?.businessDescription || "",
+      businessAddress: businessAddress !== undefined ? businessAddress : user.sellerProfile?.businessAddress || "",
+      businessCity: businessCity !== undefined ? businessCity : user.sellerProfile?.businessCity || "",
+      businessState: businessState !== undefined ? businessState : user.sellerProfile?.businessState || "",
+      businessPincode: businessPincode !== undefined ? businessPincode : user.sellerProfile?.businessPincode || "",
+      businessPhone: businessPhone !== undefined ? businessPhone : user.sellerProfile?.businessPhone || "",
+      businessEmail: businessEmail !== undefined ? businessEmail : user.sellerProfile?.businessEmail || "",
+      gstNumber: gstNumber !== undefined ? gstNumber : user.sellerProfile?.gstNumber || "",
+      panNumber: panNumber !== undefined ? panNumber : user.sellerProfile?.panNumber || "",
+      sellerCategories: Array.isArray(sellerCategories) ? sellerCategories : user.sellerProfile?.sellerCategories || [],
+      bankDetails: bankDetails ? { ...user.sellerProfile?.bankDetails, ...bankDetails } : user.sellerProfile?.bankDetails,
+    };
+
+    await user.save();
+
+    let existingProfile = await SellerProfile.findOne({ userId: user._id });
+    if (!existingProfile) {
+      existingProfile = new SellerProfile({ userId: user._id });
+    }
+    if (businessName) existingProfile.businessName = businessName;
+    if (gstNumber) existingProfile.gst = gstNumber;
+    if (bankDetails) existingProfile.bankDetails = { ...existingProfile.bankDetails, ...bankDetails };
+    await existingProfile.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Seller business information updated successfully",
+      user,
+      sellerProfile: user.sellerProfile,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const UpdateNotificationPreferencesHandler = async (req, res) => {
+  try {
+    const { pushNotifications, emailNotifications, marketingNotifications, buyerNotifications, sellerNotifications } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    user.notificationPreferences = {
+      pushNotifications: pushNotifications !== undefined ? Boolean(pushNotifications) : user.notificationPreferences?.pushNotifications ?? true,
+      emailNotifications: emailNotifications !== undefined ? Boolean(emailNotifications) : user.notificationPreferences?.emailNotifications ?? true,
+      marketingNotifications: marketingNotifications !== undefined ? Boolean(marketingNotifications) : user.notificationPreferences?.marketingNotifications ?? false,
+      buyerNotifications: { ...user.notificationPreferences?.buyerNotifications, ...buyerNotifications },
+      sellerNotifications: { ...user.notificationPreferences?.sellerNotifications, ...sellerNotifications },
+    };
+
+    await user.save();
+    return res.status(200).json({ success: true, message: "Notification preferences updated", user });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const UpdatePrivacySettingsHandler = async (req, res) => {
+  try {
+    const { showProfileInfo, showPhoneNumber, showEmail, locationVisibility, personalizedRecs, language, appearance } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    user.privacySettings = {
+      showProfileInfo: showProfileInfo !== undefined ? Boolean(showProfileInfo) : user.privacySettings?.showProfileInfo ?? true,
+      showPhoneNumber: showPhoneNumber !== undefined ? Boolean(showPhoneNumber) : user.privacySettings?.showPhoneNumber ?? false,
+      showEmail: showEmail !== undefined ? Boolean(showEmail) : user.privacySettings?.showEmail ?? false,
+      locationVisibility: locationVisibility !== undefined ? Boolean(locationVisibility) : user.privacySettings?.locationVisibility ?? true,
+      personalizedRecs: personalizedRecs !== undefined ? Boolean(personalizedRecs) : user.privacySettings?.personalizedRecs ?? true,
+    };
+    if (language) user.language = language;
+    if (appearance) user.appearance = appearance;
+
+    await user.save();
+    return res.status(200).json({ success: true, message: "Privacy settings updated", user });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const ChangePasswordHandler = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: "Current and new password are required" });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: "New password must be at least 6 characters" });
+    }
+
+    const user = await User.findById(req.user._id).select("+password");
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid) {
+      return res.status(401).json({ success: false, message: "Current password is incorrect" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    return res.status(200).json({ success: true, message: "Password updated successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const RegisterRoleHandler = async (req, res) => {
+  try {
+    const { role, sellerProfileData } = req.body;
+    const normalizedRole = typeof role === "string" ? role.toLowerCase() : "";
+
+    if (!["buyer", "seller"].includes(normalizedRole)) {
+      return res.status(400).json({ success: false, message: "Invalid role specified" });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    if (!user.roles.includes(normalizedRole)) {
+      user.roles.push(normalizedRole);
+    }
+    user.activeRole = normalizedRole;
+
+    if (normalizedRole === "seller") {
+      if (sellerProfileData) {
+        user.sellerProfile = {
+          ...user.sellerProfile,
+          ...sellerProfileData,
+        };
+      }
+      let existingProfile = await SellerProfile.findOne({ userId: user._id });
+      if (!existingProfile) {
+        await SellerProfile.create({ userId: user._id, businessName: sellerProfileData?.businessName || "" });
+      }
+    }
+
+    await user.save();
+
+    const accessToken = generateAccessToken(user._id, user.email, user.roles, user.activeRole);
+    const refreshToken = generateRefreshToken(user._id, user.email, user.roles, user.activeRole);
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Registered as ${normalizedRole} and switched active mode successfully.`,
+      accessToken,
+      refreshToken,
+      activeRole: user.activeRole,
+      roles: user.roles,
+      user,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const DeleteAccountHandler = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId);
+
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    user.accountStatus = "deleted";
+    user.refreshToken = null;
+    await user.save();
+
+    await User.findByIdAndDelete(userId);
+    await SellerProfile.deleteMany({ userId });
+
+    return res.status(200).json({
+      success: true,
+      message: "Account permanently deleted successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const GetUsersListHandler = async (req, res) => {
+  try {
+    const filter = { accountStatus: { $ne: "deleted" } };
+    if (req.query.role) filter.roles = req.query.role;
+    if (req.query.q) {
+      const qRegex = new RegExp(req.query.q.trim(), "i");
+      filter.$or = [{ firstName: qRegex }, { lastName: qRegex }, { email: qRegex }, { username: qRegex }];
+    }
+
+    const result = await paginate(User, filter, {
+      reqQuery: req.query,
+      selectFields: "-password -refreshToken",
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

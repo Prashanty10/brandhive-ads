@@ -1,9 +1,26 @@
 import axios from "axios";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
+import Constants from "expo-constants";
+
+const getBaseUrl = () => {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+  const hostUri = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
+  if (hostUri) {
+    const ip = hostUri.split(":")[0];
+    if (ip) {
+      return `http://${ip}:3000`;
+    }
+  }
+  return "http://192.168.0.102:3000";
+};
+
+export const API_BASE_URL = getBaseUrl();
 
 const api = axios.create({
-  baseURL: "http://10.221.22.24:3000/",
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -32,7 +49,7 @@ api.interceptors.response.use(
         const refreshToken = await SecureStore.getItemAsync("refreshToken");
 
         const response = await axios.post(
-          "http://10.221.22.24:3000/auth/refresh-token",
+          `${API_BASE_URL}/auth/refresh-token`,
           {
             refreshToken,
           },

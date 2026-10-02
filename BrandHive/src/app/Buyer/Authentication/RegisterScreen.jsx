@@ -19,6 +19,7 @@ import {
 import colors from "../../../Theme/colors";
 import { useLocalSearchParams } from "expo-router";
 import { RegisterApi } from "../Api/userApi";
+import BrandHiveLogo from "../components/common/BrandHiveLogo";
 const RegisterScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -141,6 +142,7 @@ const RegisterScreen = () => {
           </TouchableOpacity>
         </View>
         <View style={styles.titleContainer}>
+          <BrandHiveLogo size="large" style={{ marginBottom: 12 }} />
           <Text style={styles.titleText}>Create your account</Text>
         </View>
         <View style={styles.socialRow}>

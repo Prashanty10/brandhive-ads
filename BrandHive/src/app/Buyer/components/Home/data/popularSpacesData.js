@@ -1,0 +1,48 @@
+export const popularSpacesData = [
+  {
+    id: "pop_1",
+    title: "Times Square Unipole Billboard",
+    location: "Express Highway Junction, Sector 18",
+    price: "₹4,500/day",
+    views: "14.2k views",
+    bookings: "52 bookings",
+    availability: "Available Now",
+    isSaved: true,
+    image: "https://trzyx.in/wp-content/uploads/2026/06/times-square-spectaculars.webp",
+  },
+  {
+    id: "pop_2",
+    title: "City Mall Atrium 4K LED Screen",
+    location: "Central Promenade Mall, Main Entry",
+    price: "₹6,200/day",
+    views: "18.9k views",
+    bookings: "74 bookings",
+    availability: "Booking Fast",
+    isSaved: false,
+    image: "https://i.pinimg.com/1200x/bd/87/49/bd87496109c93aa436c9ffb9a36f3ea1.jpg",
+  },
+  {
+    id: "pop_3",
+    title: "Metro Interchange Station FOB Banner",
+    location: "Connaught Place Terminal Gate 3",
+    price: "₹3,800/day",
+    views: "22.1k views",
+    bookings: "89 bookings",
+    availability: "Available Now",
+    isSaved: true,
+    image: "https://i.pinimg.com/736x/e9/1b/5e/e91b5e94b0778f99a4a4771843d62b15.jpg",
+  },
+  {
+    id: "pop_4",
+    title: "Airport Terminal 2 Arrival Screen",
+    location: "IGI Airport Terminal 2 Baggage Belt",
+    price: "₹9,500/day",
+    views: "31.5k views",
+    bookings: "110 bookings",
+    availability: "Limited Spaces",
+    isSaved: false,
+    image: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=800&auto=format&fit=crop&q=80",
+  },
+];
+
+export default popularSpacesData;

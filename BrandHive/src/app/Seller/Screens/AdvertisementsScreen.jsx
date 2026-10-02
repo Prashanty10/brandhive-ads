@@ -11,7 +11,10 @@ import {
   Modal,
   ScrollView,
   RefreshControl,
+  TextInput,
+  Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -21,70 +24,60 @@ import {
 } from "react-native-responsive-screen";
 import colors from "../../../Theme/colors";
 import { OFFLINE_AD_CATEGORIES } from "../../Buyer/advertisement/offline/OfflineCategoryScreen";
+import {
+  getMyAdvertisementsApi,
+  updateAdSpaceApi,
+  toggleAdSpaceStatusApi,
+} from "../../Buyer/Api/adspaceApi";
+import usePaginatedList from "../../Buyer/components/common/usePaginatedList";
+import StatusBadge from "../components/StatusBadge";
+import SkeletonCard from "../components/SkeletonCard";
+import EmptyState from "../components/EmptyState";
 
 const DEFAULT_IMAGE =
   "https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?w=500&auto=format&fit=crop&q=60";
 
-const MOCK_SELLER_ADS = [
-  {
-    _id: "ad1",
-    title: "Prime Highway Unipole Billboard",
-    category: "hoarding",
-    price: 4500,
-    status: "active",
-    location: { address: "Express Highway Junction, Sector 18" },
-    images: ["https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?w=500&auto=format&fit=crop&q=60"],
-    createdAt: new Date().toISOString(),
-  },
-  {
-    _id: "ad2",
-    title: "City Mall Entrance 4K Digital Billboard",
-    category: "digital_billboard",
-    price: 6000,
-    status: "active",
-    location: { address: "Central Promenade Mall, Main Atrium" },
-    images: ["https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=500&auto=format&fit=crop&q=60"],
-    createdAt: new Date().toISOString(),
-  },
-  {
-    _id: "ad3",
-    title: "Metro Station Platform LED Screens",
-    category: "led_screen",
-    price: 3200,
-    status: "pending",
-    location: { address: "Connaught Place Metro Station Gate 3" },
-    images: ["https://images.unsplash.com/photo-1563986768609-322da13575f3?w=500&auto=format&fit=crop&q=60"],
-    createdAt: new Date().toISOString(),
-  },
-];
+const FILTER_OPTIONS = ["All", "Active", "Pending", "Inactive"];
 
 const AdvertisementsScreen = () => {
   const router = useRouter();
 
-  const [advertisements, setAdvertisements] = useState(MOCK_SELLER_ADS);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
+  const [activeFilter, setActiveFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
 
-  const fetchAdvertisements = async (isRefreshing = false) => {
-    if (isRefreshing) {
-      setRefreshing(true);
-      setTimeout(() => {
-        setAdvertisements(MOCK_SELLER_ADS);
-        setRefreshing(false);
-      }, 400);
-    } else {
-      setAdvertisements(MOCK_SELLER_ADS);
-      setLoading(false);
-    }
-  };
+  // Edit Modal State
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingAd, setEditingAd] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
-  // Re-fetch automatically whenever screen comes into focus
+  const filters = React.useMemo(
+    () => ({
+      status: activeFilter !== "All" ? activeFilter.toLowerCase() : undefined,
+      q: searchQuery.trim() || undefined,
+    }),
+    [activeFilter, searchQuery]
+  );
+
+  const {
+    data: advertisements,
+    pagination,
+    isLoading: loading,
+    isLoadingMore,
+    isRefreshing: refreshing,
+    loadPage,
+    refresh,
+    loadMore,
+    setData: setAdvertisements,
+  } = usePaginatedList(getMyAdvertisementsApi, filters, 20);
+
   useFocusEffect(
     useCallback(() => {
-      fetchAdvertisements();
-    }, [])
+      loadPage(1);
+    }, [filters])
   );
 
   const handleCategorySelect = (categoryName) => {
@@ -95,51 +88,90 @@ const AdvertisementsScreen = () => {
     });
   };
 
+  const handleOpenEdit = (adItem) => {
+    setEditingAd(adItem);
+    setEditTitle(adItem.title || "");
+    setEditPrice(adItem.price ? String(adItem.price) : "");
+    const address =
+      typeof adItem.location === "object" && adItem.location?.address
+        ? adItem.location.address
+        : typeof adItem.location === "string"
+        ? adItem.location
+        : "";
+    setEditAddress(address);
+    setEditModalVisible(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTitle.trim()) {
+      Alert.alert("Validation", "Please enter an advertisement title.");
+      return;
+    }
+    if (!editPrice.trim() || isNaN(Number(editPrice)) || Number(editPrice) < 0) {
+      Alert.alert("Validation", "Please enter a valid non-negative price.");
+      return;
+    }
+
+    try {
+      setSavingEdit(true);
+      const res = await updateAdSpaceApi(editingAd._id, {
+        title: editTitle.trim(),
+        price: Number(editPrice),
+        location: {
+          ...editingAd.location,
+          address: editAddress.trim(),
+        },
+      });
+
+      if (res?.success) {
+        setAdvertisements((prev) =>
+          prev.map((item) => (item._id === editingAd._id ? res.data : item))
+        );
+        setEditModalVisible(false);
+        setEditingAd(null);
+        Alert.alert("Success 🎉", "Ad space details updated successfully!");
+      }
+    } catch (err) {
+      Alert.alert("Update Failed", err.message || "Unable to save changes.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleToggleStatus = async (adItem) => {
+    const currentStatus = adItem.status || "active";
+    const nextStatus = currentStatus === "active" ? "inactive" : "active";
+
+    try {
+      const res = await toggleAdSpaceStatusApi(adItem._id, nextStatus);
+      if (res?.success) {
+        setAdvertisements((prev) =>
+          prev.map((item) =>
+            item._id === adItem._id ? { ...item, status: nextStatus } : item
+          )
+        );
+      }
+    } catch (err) {
+      Alert.alert("Error", err.message || "Failed to toggle status.");
+    }
+  };
+
   const formatPrice = (price) => {
-    if (!price) return "N/A";
+    if (price == null) return "N/A";
     const num = Number(price);
     if (isNaN(num)) return price;
     return `₹${num.toLocaleString("en-IN")}`;
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "Recently";
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    } catch {
-      return "Recently";
-    }
-  };
-
-  const getStatusStyle = (status) => {
-    const s = status ? status.toLowerCase() : "active";
-    switch (s) {
-      case "active":
-        return { bg: "#ECFDF5", text: "#10B981", label: "Active" };
-      case "pending":
-        return { bg: "#FFF7ED", text: "#F97316", label: "Pending" };
-      case "inactive":
-        return { bg: "#FEF2F2", text: "#EF4444", label: "Inactive" };
-      default:
-        return { bg: "#ECFDF5", text: "#10B981", label: "Active" };
-    }
-  };
-
-  // Category info lookup
   const getCategoryDetails = (catName) => {
-    const matched = OFFLINE_AD_CATEGORIES.find(
+    const matched = OFFLINE_AD_CATEGORIES?.find(
       (c) => c.categoryName === catName
     );
     if (matched) {
       return {
         title: matched.title,
-        icon: matched.icon[0],
-        iconColor: matched.iconColor,
+        icon: matched.icon[0] || "easel-outline",
+        iconColor: matched.iconColor || colors.primary,
       };
     }
     const formatted = catName
@@ -147,125 +179,153 @@ const AdvertisementsScreen = () => {
       : "General Ad";
     return {
       title: formatted,
-      icon: "megaphone-outline",
+      icon: "easel-outline",
       iconColor: colors.primary,
     };
   };
 
-  // Render Skeleton Loaders while loading
-  const renderSkeletonLoaders = () => (
-    <View style={styles.skeletonContainer}>
-      {[1, 2, 3].map((key) => (
-        <View key={key} style={styles.skeletonCard}>
-          <View style={styles.skeletonImage} />
-          <View style={styles.skeletonBody}>
-            <View style={[styles.skeletonLine, { width: "40%", height: 12 }]} />
-            <View style={[styles.skeletonLine, { width: "80%", height: 18 }]} />
-            <View style={[styles.skeletonLine, { width: "60%", height: 12 }]} />
-            <View style={[styles.skeletonLine, { width: "35%", height: 16 }]} />
-          </View>
-        </View>
-      ))}
-    </View>
-  );
+  const filteredAdvertisements = advertisements.filter((item) => {
+    const matchesFilter =
+      activeFilter === "All" ||
+      (item.status || "active").toLowerCase() === activeFilter.toLowerCase();
 
-  // Render Error / Retry State
-  const renderErrorState = () => (
-    <View style={styles.stateContainer}>
-      <View style={styles.errorIconWrapper}>
-        <Ionicons name="cloud-offline-outline" size={48} color={colors.error} />
-      </View>
-      <Text style={styles.stateTitle}>Unable to Load Listings</Text>
-      <Text style={styles.stateSubtitle}>{error}</Text>
-      <TouchableOpacity
-        style={styles.retryBtn}
-        activeOpacity={0.8}
-        onPress={() => fetchAdvertisements()}
-      >
-        <Ionicons name="refresh" size={18} color={colors.white} />
-        <Text style={styles.retryBtnText}>Retry Connection</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      (item.title || "").toLowerCase().includes(q) ||
+      (item.category || "").toLowerCase().includes(q) ||
+      (item.location?.city || "").toLowerCase().includes(q) ||
+      (item.location?.address || "").toLowerCase().includes(q);
 
-  // Render Empty State
-  const renderEmptyState = () => (
-    <View style={styles.stateContainer}>
-      <View style={styles.emptyIconWrapper}>
-        <Ionicons name="megaphone-outline" size={48} color={colors.primary} />
-      </View>
-      <Text style={styles.stateTitle}>No Advertisements Yet</Text>
-      <Text style={styles.stateSubtitle}>
-        You haven&apos;t published any advertisements yet. Create your first advertisement to start receiving booking requests.
-      </Text>
-      <TouchableOpacity
-        style={styles.createAdBtn}
-        activeOpacity={0.8}
-        onPress={() => setCategoryModalVisible(true)}
-      >
-        <Ionicons name="add-circle-outline" size={20} color={colors.white} />
-        <Text style={styles.createAdBtnText}>Create Advertisement</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    return matchesFilter && matchesSearch;
+  });
 
-  // Render Single Advertisement Card
   const renderAdCard = ({ item }) => {
     const catDetails = getCategoryDetails(item.category);
-    const statusStyle = getStatusStyle(item.status);
     const imageUri =
-      Array.isArray(item.images) && item.images.length > 0
+      Array.isArray(item.images) && item.images.length > 0 && item.images[0]?.startsWith("http")
         ? item.images[0]
         : DEFAULT_IMAGE;
+
     const locationText =
-      typeof item.location === "object" && item.location?.address
-        ? item.location.address
-        : typeof item.location === "string"
-        ? item.location
-        : "Location details available";
+      item.location?.city
+        ? `${item.location.city}${item.location.state ? `, ${item.location.state}` : ""}`
+        : item.location?.address || "Location specified";
+
+    const isVerified = Boolean(item.isVerified || item.sellerVerification);
 
     return (
       <View style={styles.card}>
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />
-          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-            <Text style={[styles.statusText, { color: statusStyle.text }]}>
-              {statusStyle.label}
+        <View style={styles.cardTopRow}>
+          <Image source={{ uri: imageUri }} style={styles.cardImage} resizeMode="cover" />
+
+          <View style={styles.cardHeaderInfo}>
+            <View style={styles.badgeRow}>
+              <StatusBadge status={item.status} />
+
+              {isVerified && (
+                <View style={styles.verifiedBadge}>
+                  <Ionicons name="checkmark-circle" size={12} color="#059669" />
+                  <Text style={styles.verifiedBadgeText}>Verified</Text>
+                </View>
+              )}
+            </View>
+
+            <Text style={styles.adTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+
+            <View style={styles.categoryRow}>
+              <Ionicons name={catDetails.icon} size={12} color={catDetails.iconColor} />
+              <Text style={styles.categoryText}>{catDetails.title}</Text>
+            </View>
+
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={12} color="#EF4444" />
+              <Text style={styles.locationText} numberOfLines={1}>
+                {locationText}
+              </Text>
+            </View>
+
+            <View style={styles.priceRow}>
+              <Text style={styles.priceValue}>{formatPrice(item.price)}</Text>
+              <Text style={styles.priceDuration}> / {item.priceUnit || "month"}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Stats bar */}
+        <View style={styles.statsBar}>
+          <View style={styles.statItem}>
+            <Ionicons name="eye-outline" size={13} color="#2563EB" />
+            <Text style={styles.statText}>{item.views || 0} views</Text>
+          </View>
+
+          <View style={styles.statDivider} />
+
+          <View style={styles.statItem}>
+            <Ionicons name="calendar-outline" size={13} color="#059669" />
+            <Text style={styles.statText}>{item.bookings || 0} bookings</Text>
+          </View>
+
+          <View style={styles.statDivider} />
+
+          <View style={styles.statItem}>
+            <Ionicons
+              name={item.availability?.isAvailable !== false ? "checkmark-circle-outline" : "close-circle-outline"}
+              size={13}
+              color={item.availability?.isAvailable !== false ? "#10B981" : "#EF4444"}
+            />
+            <Text style={styles.statText}>
+              {item.availability?.isAvailable !== false ? "Available" : "Booked"}
             </Text>
           </View>
         </View>
 
-        <View style={styles.cardInfo}>
-          <View style={styles.categoryRow}>
-            <View
+        {/* Actions bar */}
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() =>
+              router.push({
+                pathname: "/Buyer/Screens/AdvertisementDetailsScreen",
+                params: { id: item._id },
+              })
+            }
+          >
+            <Ionicons name="open-outline" size={14} color={colors.textPrimary} />
+            <Text style={styles.actionBtnText}>View</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => handleOpenEdit(item)}
+          >
+            <Ionicons name="create-outline" size={14} color={colors.primary} />
+            <Text style={[styles.actionBtnText, { color: colors.primary }]}>Edit</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              item.status === "active" ? styles.deactivateBtn : styles.activateBtn,
+            ]}
+            onPress={() => handleToggleStatus(item)}
+          >
+            <Ionicons
+              name={item.status === "active" ? "pause-circle-outline" : "play-circle-outline"}
+              size={14}
+              color={item.status === "active" ? "#EF4444" : "#10B981"}
+            />
+            <Text
               style={[
-                styles.iconWrapper,
-                { backgroundColor: `${catDetails.iconColor}15` },
+                styles.actionBtnText,
+                { color: item.status === "active" ? "#EF4444" : "#10B981" },
               ]}
             >
-              <Ionicons name={catDetails.icon} size={14} color={catDetails.iconColor} />
-            </View>
-            <Text style={styles.categoryText}>{catDetails.title}</Text>
-            <Text style={styles.dotSeparator}>•</Text>
-            <Text style={styles.dateText}>{formatDate(item.createdAt)}</Text>
-          </View>
-
-          <Text style={styles.adTitle} numberOfLines={1}>
-            {item.title}
-          </Text>
-
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {locationText}
+              {item.status === "active" ? "Deactivate" : "Activate"}
             </Text>
-          </View>
-
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Price:</Text>
-            <Text style={styles.priceValue}>{formatPrice(item.price)}</Text>
-            <Text style={styles.priceDuration}> / month</Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -273,14 +333,14 @@ const AdvertisementsScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
-      {/* Header */}
+      {/* ── Header ── */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>My Advertisements</Text>
           <Text style={styles.headerSubtitle}>
-            Manage & track your live advertising listings
+            Manage & edit your listed advertising spaces
           </Text>
         </View>
 
@@ -289,28 +349,90 @@ const AdvertisementsScreen = () => {
           activeOpacity={0.8}
           onPress={() => setCategoryModalVisible(true)}
         >
-          <Ionicons name="add" size={22} color={colors.white} />
+          <Ionicons name="add" size={20} color={colors.white} />
+          <Text style={styles.headerAddBtnText}>Add</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Main Content Area */}
+      {/* ── Search & Filter Toolbar ── */}
+      <View style={styles.toolbar}>
+        {/* Search input */}
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={16} color={colors.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search ad spaces by title, city..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Filter chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterChipRow}
+        >
+          {FILTER_OPTIONS.map((f) => {
+            const isSel = activeFilter === f;
+            return (
+              <TouchableOpacity
+                key={f}
+                style={[styles.filterChip, isSel && styles.filterChipActive]}
+                onPress={() => setActiveFilter(f)}
+              >
+                <Text style={[styles.filterChipText, isSel && styles.filterChipTextActive]}>
+                  {f} {isSel && pagination?.total != null ? `(${pagination.total})` : ""}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* ── Content List ── */}
       {loading && !refreshing ? (
-        renderSkeletonLoaders()
-      ) : error ? (
-        renderErrorState()
+        <View style={{ paddingHorizontal: 20 }}>
+          <SkeletonCard type="card" count={3} />
+        </View>
       ) : (
         <FlatList
           style={{ flex: 1 }}
           data={advertisements}
-          keyExtractor={(item, idx) => item._id || item.id || idx.toString()}
+          keyExtractor={(item) => item._id || item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           renderItem={renderAdCard}
-          ListEmptyComponent={renderEmptyState}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 16 }} />
+            ) : null
+          }
+          ListEmptyComponent={
+            <EmptyState
+              icon="easel-outline"
+              title="No advertisement spaces found"
+              description={
+                searchQuery
+                  ? "No listings match your search criteria."
+                  : `You don't have any ${activeFilter.toLowerCase()} advertisement spaces.`
+              }
+              buttonTitle="+ Add Advertisement Space"
+              onButtonPress={() => setCategoryModalVisible(true)}
+            />
+          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => fetchAdvertisements(true)}
+              onRefresh={refresh}
               colors={[colors.primary]}
               tintColor={colors.primary}
             />
@@ -318,18 +440,87 @@ const AdvertisementsScreen = () => {
         />
       )}
 
-      {/* Floating Action Button */}
-      {advertisements.length > 0 && !loading && (
-        <TouchableOpacity
-          style={styles.fab}
-          activeOpacity={0.9}
-          onPress={() => setCategoryModalVisible(true)}
+      {/* Edit Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
         >
-          <Ionicons name="add" size={28} color={colors.white} />
-        </TouchableOpacity>
-      )}
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Advertisement</Text>
+              <TouchableOpacity
+                onPress={() => setEditModalVisible(false)}
+                style={styles.closeBtn}
+              >
+                <Ionicons name="close" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
 
-      {/* Category Selection Modal */}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.formScroll}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Title</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editTitle}
+                  onChangeText={setEditTitle}
+                  placeholder="Enter title..."
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Price (₹ / Month)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editPrice}
+                  onChangeText={setEditPrice}
+                  placeholder="Enter price..."
+                  keyboardType="numeric"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Location Address</Text>
+                <TextInput
+                  style={[styles.input, styles.multilineInput]}
+                  value={editAddress}
+                  onChangeText={setEditAddress}
+                  placeholder="Enter location address..."
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  numberOfLines={2}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.saveEditBtn, savingEdit && { opacity: 0.6 }]}
+                activeOpacity={0.88}
+                onPress={handleSaveEdit}
+                disabled={savingEdit}
+              >
+                {savingEdit ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.saveEditBtnText}>Save Changes</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Category Select Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -339,12 +530,12 @@ const AdvertisementsScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Choose Category</Text>
+              <Text style={styles.modalTitle}>Choose Advertising Medium</Text>
               <TouchableOpacity
                 onPress={() => setCategoryModalVisible(false)}
                 style={styles.closeBtn}
               >
-                <Ionicons name="close" size={24} color={colors.textPrimary} />
+                <Ionicons name="close" size={20} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
@@ -353,7 +544,7 @@ const AdvertisementsScreen = () => {
               contentContainerStyle={styles.modalScroll}
             >
               <Text style={styles.modalSubtitle}>
-                Select an advertising medium to list your space:
+                Select a medium to list your new advertisement space:
               </Text>
               {OFFLINE_AD_CATEGORIES.map((item) => (
                 <TouchableOpacity
@@ -365,13 +556,13 @@ const AdvertisementsScreen = () => {
                   <View
                     style={[
                       styles.itemIconContainer,
-                      { backgroundColor: `${item.iconColor}15` },
+                      { backgroundColor: `${item.color || colors.primary}15` },
                     ]}
                   >
                     <Ionicons
-                      name={item.icon[0]}
+                      name={item.icon || "easel-outline"}
                       size={20}
-                      color={item.iconColor}
+                      color={item.color || colors.primary}
                     />
                   </View>
                   <View style={styles.itemInfo}>
@@ -404,13 +595,12 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : hp("6%"),
   },
 
-  // ── Header
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 12,
   },
   headerTitle: {
     fontSize: 22,
@@ -421,104 +611,141 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 13,
     color: colors.textSecondary,
-    marginTop: 3,
-    fontWeight: "400",
+    marginTop: 2,
   },
   headerAddBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primary,
-    justifyContent: "center",
+    flexDirection: "row",
     alignItems: "center",
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    gap: 4,
+    backgroundColor: colors.button,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  headerAddBtnText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: "700",
   },
 
-  // ── List
+  // Toolbar
+  toolbar: {
+    paddingHorizontal: 20,
+    marginBottom: 8,
+    gap: 10,
+  },
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 42,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textPrimary,
+  },
+  filterChipRow: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  filterChipActive: {
+    backgroundColor: colors.textPrimary,
+    borderColor: colors.textPrimary,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textSecondary,
+  },
+  filterChipTextActive: {
+    color: colors.white,
+  },
+
   listContent: {
     paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingTop: 8,
     paddingBottom: hp("15%"),
-    gap: 12,
+    gap: 14,
   },
 
-  // ── Ad Card
   card: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.white,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
-    flexDirection: "row",
-    overflow: "hidden",
+    padding: 14,
     shadowColor: "#111827",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 10,
     elevation: 2,
-    height: hp("17%"),
+    gap: 12,
   },
-  imageContainer: {
-    width: wp("33%"),
-    height: "100%",
-    position: "relative",
+  cardTopRow: {
+    flexDirection: "row",
+    gap: 12,
   },
-  image: {
-    width: "100%",
-    height: "100%",
+  cardImage: {
+    width: wp("28%"),
+    height: wp("28%"),
+    borderRadius: 14,
   },
-  statusBadge: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  cardInfo: {
+  cardHeaderInfo: {
     flex: 1,
-    padding: 14,
     justifyContent: "space-between",
+  },
+  badgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  verifiedBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#059669",
+  },
+  adTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: colors.textPrimary,
   },
   categoryRow: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  iconWrapper: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 6,
+    gap: 4,
   },
   categoryText: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "600",
     color: colors.textSecondary,
-    letterSpacing: 0.1,
-  },
-  dotSeparator: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginHorizontal: 4,
-  },
-  dateText: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  adTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    letterSpacing: -0.1,
   },
   locationRow: {
     flexDirection: "row",
@@ -532,210 +759,169 @@ const styles = StyleSheet.create({
   },
   priceRow: {
     flexDirection: "row",
-    alignItems: "center",
-  },
-  priceLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginRight: 4,
+    alignItems: "baseline",
   },
   priceValue: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "800",
     color: colors.textPrimary,
-    letterSpacing: -0.2,
   },
   priceDuration: {
     fontSize: 11,
     color: colors.textSecondary,
   },
 
-  // ── Skeleton
-  skeletonContainer: {
-    paddingHorizontal: 20,
-    gap: 12,
-    paddingTop: 4,
-  },
-  skeletonCard: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
+  statsBar: {
     flexDirection: "row",
-    height: hp("17%"),
-    overflow: "hidden",
-    padding: 12,
-    gap: 12,
-  },
-  skeletonImage: {
-    width: wp("30%"),
-    height: "100%",
-    backgroundColor: colors.divider,
+    alignItems: "center",
+    justifyContent: "space-around",
+    backgroundColor: colors.neutralLight,
+    paddingVertical: 8,
     borderRadius: 12,
   },
-  skeletonBody: {
-    flex: 1,
-    justifyContent: "space-around",
-  },
-  skeletonLine: {
-    backgroundColor: colors.divider,
-    borderRadius: 6,
-  },
-
-  // ── States
-  stateContainer: {
-    flex: 1,
-    justifyContent: "center",
+  statItem: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 40,
-    paddingBottom: hp("10%"),
+    gap: 5,
   },
-  emptyIconWrapper: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    backgroundColor: colors.neutralLight,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  errorIconWrapper: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    backgroundColor: "#FEF2F2",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  stateTitle: {
-    fontSize: 18,
-    fontWeight: "800",
+  statText: {
+    fontSize: 11,
+    fontWeight: "600",
     color: colors.textPrimary,
-    marginBottom: 8,
-    textAlign: "center",
-    letterSpacing: -0.2,
   },
-  stateSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  createAdBtn: {
-    backgroundColor: colors.button,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    shadowColor: "#111827",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  createAdBtnText: {
-    color: colors.white,
-    fontWeight: "700",
-    fontSize: 14,
-  },
-  retryBtn: {
-    backgroundColor: colors.error,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  retryBtnText: {
-    color: colors.white,
-    fontWeight: "700",
-    fontSize: 14,
+  statDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: colors.border,
   },
 
-  // ── FAB
-  fab: {
-    position: "absolute",
-    bottom: 110,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
+  actionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingTop: 4,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.32,
-    shadowRadius: 12,
-    elevation: 6,
+    gap: 4,
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  actionBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  deactivateBtn: {
+    borderColor: "#FEE2E2",
+    backgroundColor: "#FEF2F2",
+  },
+  activateBtn: {
+    borderColor: "#D1FAE5",
+    backgroundColor: "#ECFDF5",
   },
 
-  // ── Modal
+  // Modal Overlay
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    backgroundColor: "rgba(17, 24, 39, 0.4)",
     justifyContent: "flex-end",
   },
   modalContent: {
     backgroundColor: colors.white,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    maxHeight: hp("80%"),
-    paddingTop: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "85%",
+    paddingBottom: 24,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingTop: 18,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
     color: colors.textPrimary,
-    letterSpacing: -0.2,
   },
   closeBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.background,
+    backgroundColor: "#F3F4F6",
     justifyContent: "center",
     alignItems: "center",
   },
-  modalScroll: {
+  formScroll: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: hp("5%"),
+    gap: 16,
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  input: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: colors.textPrimary,
+  },
+  multilineInput: {
+    height: 70,
+    paddingTop: 10,
+    textAlignVertical: "top",
+  },
+  saveEditBtn: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: colors.button,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  saveEditBtnText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  modalScroll: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    gap: 10,
   },
   modalSubtitle: {
     fontSize: 13,
     color: colors.textSecondary,
-    marginBottom: 16,
-    lineHeight: 20,
+    marginBottom: 6,
   },
   categoryItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.white,
+    padding: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 10,
-    shadowColor: "#111827",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
+    backgroundColor: colors.white,
+    gap: 12,
   },
   itemIconContainer: {
     width: 40,
@@ -743,8 +929,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
-    flexShrink: 0,
   },
   itemInfo: {
     flex: 1,
@@ -753,8 +937,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: colors.textPrimary,
-    marginBottom: 3,
-    letterSpacing: -0.1,
   },
   itemSubtitle: {
     fontSize: 12,

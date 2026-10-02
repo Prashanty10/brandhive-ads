@@ -7,7 +7,6 @@ import colors from "../../../Theme/colors";
 const TAB_BAR_BG = "#000";
 const TAB_ACTIVE_COLOR = "#FFFFFF";
 const TAB_INACTIVE_COLOR = "#8E8E93";
-const ACTIVE_PILL = "#2C2C2E";
 
 const TabScreen = () => {
   return (
@@ -19,7 +18,7 @@ const TabScreen = () => {
 
         tabBarStyle: {
           position: "absolute",
-          bottom:40,
+          bottom: 40,
           left: 20,
           right: 20,
           height: 68,
@@ -34,7 +33,7 @@ const TabScreen = () => {
           shadowOpacity: 0.25,
           shadowRadius: 24,
           elevation: 16,
-          marginHorizontal:20
+          marginHorizontal: 20,
         },
 
         tabBarLabelStyle: {
@@ -72,6 +71,13 @@ const TabScreen = () => {
       <Tabs.Screen name="DiscoverScreen" options={{ title: "Discover" }} />
       <Tabs.Screen name="BookingScreen" options={{ title: "Bookings" }} />
       <Tabs.Screen name="ProfileScreen" options={{ title: "Profile" }} />
+      <Tabs.Screen
+        name="AdvertisementDetailsScreen"
+        options={{
+          href: null,
+          tabBarStyle: { display: "none" },
+        }}
+      />
     </Tabs>
   );
 };

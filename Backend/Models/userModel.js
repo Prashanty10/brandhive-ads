@@ -1,5 +1,85 @@
 import mongoose from "mongoose";
 
+const buyerProfileSchema = new mongoose.Schema(
+  {
+    advertisingPreferences: { type: [String], default: [] },
+    preferredCategories: { type: [String], default: [] },
+    preferredLocations: { type: [String], default: [] },
+    preferredCity: { type: String, default: "" },
+    preferredArea: { type: String, default: "" },
+    onlineAds: { type: Boolean, default: true },
+    offlineAds: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const sellerProfileSchema = new mongoose.Schema(
+  {
+    businessName: { type: String, trim: true, default: "" },
+    businessType: { type: String, trim: true, default: "Individual / Agency" },
+    businessDescription: { type: String, trim: true, default: "" },
+    businessAddress: { type: String, trim: true, default: "" },
+    businessCity: { type: String, trim: true, default: "" },
+    businessState: { type: String, trim: true, default: "" },
+    businessPincode: { type: String, trim: true, default: "" },
+    businessPhone: { type: String, trim: true, default: "" },
+    businessEmail: { type: String, trim: true, default: "" },
+    gstNumber: { type: String, trim: true, default: "" },
+    panNumber: { type: String, trim: true, default: "" },
+    sellerCategories: { type: [String], default: [] },
+    kycStatus: {
+      type: String,
+      enum: ["pending", "verified", "rejected"],
+      default: "pending",
+    },
+    sellerStatus: {
+      type: String,
+      enum: ["active", "inactive", "suspended"],
+      default: "active",
+    },
+    bankDetails: {
+      accountNumber: { type: String, default: "" },
+      ifscCode: { type: String, default: "" },
+      accountHolderName: { type: String, default: "" },
+      bankName: { type: String, default: "" },
+    },
+  },
+  { _id: false }
+);
+
+const notificationPreferencesSchema = new mongoose.Schema(
+  {
+    pushNotifications: { type: Boolean, default: true },
+    emailNotifications: { type: Boolean, default: true },
+    marketingNotifications: { type: Boolean, default: false },
+    buyerNotifications: {
+      bookingUpdates: { type: Boolean, default: true },
+      adAlerts: { type: Boolean, default: true },
+      priceAlerts: { type: Boolean, default: true },
+      campaignUpdates: { type: Boolean, default: true },
+    },
+    sellerNotifications: {
+      newBookingRequests: { type: Boolean, default: true },
+      bookingStatusUpdates: { type: Boolean, default: true },
+      adStatus: { type: Boolean, default: true },
+      payoutAlerts: { type: Boolean, default: true },
+      sellerUpdates: { type: Boolean, default: true },
+    },
+  },
+  { _id: false }
+);
+
+const privacySettingsSchema = new mongoose.Schema(
+  {
+    showProfileInfo: { type: Boolean, default: true },
+    showPhoneNumber: { type: Boolean, default: false },
+    showEmail: { type: Boolean, default: false },
+    locationVisibility: { type: Boolean, default: true },
+    personalizedRecs: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     username: {
@@ -49,6 +129,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: "",
+    },
+
+    country: {
+      type: String,
+      trim: true,
+      default: "India",
     },
 
     location: {
@@ -101,7 +187,18 @@ const userSchema = new mongoose.Schema(
       select: false,
       default: null,
     },
+
     isVerified: {
+      type: Boolean,
+      default: false,
+    },
+
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+
+    isPhoneVerified: {
       type: Boolean,
       default: false,
     },
@@ -110,12 +207,52 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    language: {
+      type: String,
+      default: "English",
+    },
+
+    appearance: {
+      type: String,
+      default: "Light",
+    },
+
+    accountStatus: {
+      type: String,
+      enum: ["active", "inactive", "suspended", "deleted"],
+      default: "active",
+    },
+
+    buyerProfile: {
+      type: buyerProfileSchema,
+      default: () => ({}),
+    },
+
+    sellerProfile: {
+      type: sellerProfileSchema,
+      default: () => ({}),
+    },
+
+    notificationPreferences: {
+      type: notificationPreferencesSchema,
+      default: () => ({}),
+    },
+
+    privacySettings: {
+      type: privacySettingsSchema,
+      default: () => ({}),
+    },
   },
   {
     timestamps: true,
     versionKey: false,
   },
 );
+
+userSchema.index({ email: 1 });
+userSchema.index({ roles: 1, activeRole: 1 });
+userSchema.index({ createdAt: -1 });
 
 const User = mongoose.model("User", userSchema);
 

@@ -52,12 +52,14 @@ const SplashScreen = () => {
       }
 
       try {
+        const localActiveRole = await SecureStore.getItemAsync("activeRole");
         const userData = await userInfo();
         const user = userData?.user;
 
         if (!user) {
           await SecureStore.deleteItemAsync("accessToken");
           await SecureStore.deleteItemAsync("refreshToken");
+          await SecureStore.deleteItemAsync("activeRole");
           router.replace("/Buyer/Authentication/RoleSelectionScreen");
           return;
         }
@@ -78,7 +80,9 @@ const SplashScreen = () => {
           return;
         }
 
-        if (user.activeRole === "seller") {
+        const effectiveRole = localActiveRole || user.activeRole || "buyer";
+
+        if (effectiveRole === "seller") {
           router.replace("/Seller/Screens/DashboardScreen");
         } else {
           router.replace("/Buyer/Screens/HomeScreen");
@@ -86,6 +90,7 @@ const SplashScreen = () => {
       } catch (userErr) {
         await SecureStore.deleteItemAsync("accessToken");
         await SecureStore.deleteItemAsync("refreshToken");
+        await SecureStore.deleteItemAsync("activeRole");
         router.replace("/Buyer/Authentication/RoleSelectionScreen");
       }
     } catch (error) {
@@ -167,10 +172,9 @@ const SplashScreen = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.contentContainer}>
         <View style={styles.logoContainer}>
-          <Animated.Image
-            source={require("../../assets/images/icon.png")}
+          <Animated.View
             style={[
-              styles.logoIcon,
+              styles.logoBadge,
               {
                 transform: [
                   { translateY: iconTranslateY },
@@ -178,8 +182,9 @@ const SplashScreen = () => {
                 ],
               },
             ]}
-            resizeMode="contain"
-          />
+          >
+            <Text style={styles.logoBadgeText}>BH</Text>
+          </Animated.View>
 
           <Animated.View
             style={[
@@ -222,9 +227,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  logoIcon: {
-    width: wp("12%"),
-    height: wp("12%"),
+  logoBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#111827",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  logoBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "900",
+    letterSpacing: -1,
   },
   textContainer: {
     flexDirection: "row",

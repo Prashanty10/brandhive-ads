@@ -136,6 +136,24 @@ const userInfo = async () => {
   }
 };
 
+const switchRoleApi = async (role) => {
+  try {
+    const response = await api.post("/auth/switch-role", { role });
+    if (response.data?.accessToken) {
+      await SecureStore.setItemAsync("accessToken", response.data.accessToken);
+    }
+    if (response.data?.activeRole) {
+      await SecureStore.setItemAsync("activeRole", response.data.activeRole);
+    }
+    return response.data;
+  } catch (error) {
+    if (error.response?.data) {
+      throw error.response.data;
+    }
+    throw new Error(error.message || "Failed to switch role");
+  }
+};
+
 const logoutApi = async () => {
   try {
     await api.patch("/auth/logout");
@@ -143,6 +161,82 @@ const logoutApi = async () => {
   } finally {
     await SecureStore.deleteItemAsync("accessToken");
     await SecureStore.deleteItemAsync("refreshToken");
+    await SecureStore.deleteItemAsync("activeRole");
+  }
+};
+
+const updateBuyerProfileApi = async (buyerData) => {
+  try {
+    const response = await api.put("/auth/buyer-profile", buyerData);
+    return response.data;
+  } catch (error) {
+    commonError(error);
+  }
+};
+
+const updateSellerProfileApi = async (sellerData) => {
+  try {
+    const response = await api.put("/auth/seller-profile", sellerData);
+    return response.data;
+  } catch (error) {
+    commonError(error);
+  }
+};
+
+const updateNotificationPreferencesApi = async (notificationData) => {
+  try {
+    const response = await api.put("/auth/notifications", notificationData);
+    return response.data;
+  } catch (error) {
+    commonError(error);
+  }
+};
+
+const updatePrivacySettingsApi = async (privacyData) => {
+  try {
+    const response = await api.put("/auth/privacy", privacyData);
+    return response.data;
+  } catch (error) {
+    commonError(error);
+  }
+};
+
+const changePasswordApi = async (currentPassword, newPassword) => {
+  try {
+    const response = await api.put("/auth/change-password", {
+      currentPassword,
+      newPassword,
+    });
+    return response.data;
+  } catch (error) {
+    commonError(error);
+  }
+};
+
+const registerRoleApi = async (role, details = {}) => {
+  try {
+    const response = await api.post("/auth/register-role", { role, details });
+    if (response.data?.accessToken) {
+      await SecureStore.setItemAsync("accessToken", response.data.accessToken);
+    }
+    if (response.data?.activeRole) {
+      await SecureStore.setItemAsync("activeRole", response.data.activeRole);
+    }
+    return response.data;
+  } catch (error) {
+    commonError(error);
+  }
+};
+
+const deleteAccountApi = async () => {
+  try {
+    const response = await api.delete("/auth/delete-account");
+    await SecureStore.deleteItemAsync("accessToken");
+    await SecureStore.deleteItemAsync("refreshToken");
+    await SecureStore.deleteItemAsync("activeRole");
+    return response.data;
+  } catch (error) {
+    commonError(error);
   }
 };
 
@@ -155,7 +249,16 @@ export {
   verifyOtp,
   newPasswordApi,
   userInfo,
+  switchRoleApi,
   logoutApi,
+  updateBuyerProfileApi,
+  updateSellerProfileApi,
+  updateNotificationPreferencesApi,
+  updatePrivacySettingsApi,
+  changePasswordApi,
+  registerRoleApi,
+  deleteAccountApi,
 };
 
-export default null;
+const UserApiRoute = () => null;
+export default UserApiRoute;

@@ -158,8 +158,8 @@ const OfflineCategoryScreen = () => {
 
   const handlePlatformPress = (item) => {
     router.push({
-      pathname: "/Buyer/advertisement/offline/OfflineInformationScreen",
-      params: { categoryName: item.categoryName },
+      pathname: "/Buyer/Screens/DiscoverScreen",
+      params: { category: item.categoryName },
     });
   };
 

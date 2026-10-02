@@ -39,4 +39,5 @@ export const getBannerByIdApi = async (id) => {
   }
 };
 
-export default null;
+const BannerApiRoute = () => null;
+export default BannerApiRoute;

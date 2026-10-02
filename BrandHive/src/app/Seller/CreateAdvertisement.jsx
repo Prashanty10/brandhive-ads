@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -23,55 +23,140 @@ import {
   heightPercentageToDP as hp,
 } from "react-native-responsive-screen";
 
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+
 import colors from "../../Theme/colors";
 import { OFFLINE_AD_CATEGORIES } from "../Buyer/advertisement/offline/OfflineCategoryScreen";
+import { CATEGORY_FIELDS } from "./config/categoryFields";
+import { createAdSpaceApi } from "../Buyer/Api/adspaceApi";
+import { userInfo } from "../Buyer/Api/userApi";
+import FeedbackModal from "../Buyer/components/common/FeedbackModal";
 
-// Form Fields Data directly inlined
-const COMMON_FIELDS = [
-  { id: "title", label: "Ad Title", type: "text", required: true },
-  { id: "description", label: "Description", type: "textarea", required: true },
-  { id: "price", label: "Price per day (₹)", type: "number", required: true },
+const DISPLAY_TYPES = [
+  "Billboard",
+  "Hoarding",
+  "Bus",
+  "Rickshaw",
+  "Mall Screen",
+  "Digital Screen",
+  "Wall",
+  "Poster",
+  "LED Display",
+  "Website Banner",
+  "Social Media",
 ];
 
-const CATEGORY_FIELDS = {
-  hoarding: [
-    { id: "height", label: "Height (ft)", type: "number", required: true },
-    { id: "width", label: "Width (ft)", type: "number", required: true },
-    { id: "lighting", label: "Lighting Type", type: "dropdown", options: ["Lit", "Non-Lit", "Front Lit", "Back Lit"] },
-  ],
-};
+const PRICE_UNITS = ["per day", "per week", "per month", "per campaign"];
+const BOOKING_TYPES = ["Instant Booking", "Request Booking"];
+
+const AUDIENCE_OPTIONS = [
+  "Students",
+  "Families",
+  "Professionals",
+  "Shoppers",
+  "Tourists",
+  "General Public",
+];
+
+const AMENITY_OPTIONS = [
+  "High Traffic",
+  "Main Road",
+  "Parking Nearby",
+  "24/7 Visibility",
+  "CCTV",
+  "LED Display",
+  "Weather Protected",
+];
+
+const STEPS = [
+  { id: 1, title: "Basic", icon: "document-text-outline" },
+  { id: 2, title: "Location", icon: "location-outline" },
+  { id: 3, title: "Pricing & Specs", icon: "pricetag-outline" },
+  { id: 4, title: "Media", icon: "images-outline" },
+  { id: 5, title: "Review", icon: "checkmark-circle-outline" },
+];
 
 const CreateAdvertisement = () => {
   const router = useRouter();
-  const { categoryName } = useLocalSearchParams();
+  const { categoryName: initialCategory } = useLocalSearchParams();
 
-  // Category Info Lookup
+  const [currentStep, setCurrentStep] = useState(1);
+  const [category, setCategory] = useState(initialCategory || "hoarding");
+
   const categoryInfo = OFFLINE_AD_CATEGORIES.find(
-    (c) => c.categoryName === categoryName
-  ) || { title: categoryName || "Advertisement", iconColor: colors.primary };
+    (c) => c.categoryName === category
+  ) || { title: category || "Advertisement", iconColor: colors.primary };
 
-  const categoryFieldsList = CATEGORY_FIELDS[categoryName] || [];
-  const allFields = [...COMMON_FIELDS, ...categoryFieldsList];
+  const dynamicFields = CATEGORY_FIELDS[category] || CATEGORY_FIELDS.hoarding || [];
 
   // Form State
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    price: "",
-    contactNumber: "",
-    location: null,
-    images: [],
-  });
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [gettingLocation, setGettingLocation] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [displayType, setDisplayType] = useState("Billboard");
+  const [price, setPrice] = useState("");
+  const [priceUnit, setPriceUnit] = useState("per month");
+  const [minimumBookingDuration, setMinimumBookingDuration] = useState("1 day");
+  const [bookingType, setBookingType] = useState("Instant Booking");
+  const [estimatedDailyImpressions, setEstimatedDailyImpressions] = useState("");
+  const [estimatedFootfall, setEstimatedFootfall] = useState("");
 
-  // Input change handler
-  const handleInputChange = (fieldId, value) => {
-    setFormData((prev) => ({ ...prev, [fieldId]: value }));
-    if (errors[fieldId]) {
-      setErrors((prev) => ({ ...prev, [fieldId]: null }));
-    }
+  // Medium-Specific Dynamic State
+  const [mediumSpecs, setMediumSpecs] = useState({});
+
+  const [selectedAudience, setSelectedAudience] = useState([]);
+  const [selectedAmenities, setSelectedAmenities] = useState([]);
+  const [images, setImages] = useState([]);
+  const [location, setLocation] = useState(null);
+
+  // Dual Location State (GPS & Manual Input)
+  const [locationMode, setLocationMode] = useState("gps");
+  const [addressInput, setAddressInput] = useState("");
+  const [cityInput, setCityInput] = useState("");
+  const [stateInput, setStateInput] = useState("");
+  const [latitudeInput, setLatitudeInput] = useState("");
+  const [longitudeInput, setLongitudeInput] = useState("");
+
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [sellerUser, setSellerUser] = useState(null);
+
+  // Feedback Modal State
+  const [modalConfig, setModalConfig] = useState({
+    visible: false,
+    type: "success",
+    title: "",
+    message: "",
+    details: null,
+    primaryBtnText: "OK",
+    onPrimaryPress: null,
+  });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const uRes = await userInfo();
+        if (uRes?.user) setSellerUser(uRes.user);
+      } catch (e) {
+        console.log("Error loading seller info:", e);
+      }
+    })();
+  }, []);
+
+  const handleSpecChange = (fieldId, value) => {
+    setMediumSpecs((prev) => ({ ...prev, [fieldId]: value }));
+  };
+
+  const toggleAudience = (aud) => {
+    setSelectedAudience((prev) =>
+      prev.includes(aud) ? prev.filter((a) => a !== aud) : [...prev, aud]
+    );
+  };
+
+  const toggleAmenity = (amenity) => {
+    setSelectedAmenities((prev) =>
+      prev.includes(amenity) ? prev.filter((a) => a !== amenity) : [...prev, amenity]
+    );
   };
 
   // Image Picker Logic (Camera & Gallery)
@@ -93,22 +178,23 @@ const CreateAdvertisement = () => {
         ? await ImagePicker.launchCameraAsync({
             allowsEditing: true,
             aspect: [4, 3],
-            quality: 0.8,
+            quality: 0.7,
+            base64: true,
           })
         : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ImagePicker.MediaType?.Images || ImagePicker.MediaTypeOptions?.Images || "images",
             allowsMultipleSelection: true,
             selectionLimit: 5,
-            quality: 0.8,
+            quality: 0.7,
+            base64: true,
           });
 
       if (!result.canceled && result.assets) {
-        const newUris = result.assets.map((asset) => asset.uri);
-        const currentImages = formData.images || [];
-        setFormData((prev) => ({ ...prev, images: [...currentImages, ...newUris] }));
-        if (errors.images) {
-          setErrors((prev) => ({ ...prev, images: null }));
-        }
+        const newImages = result.assets.map(
+          (asset) =>
+            asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri
+        );
+        setImages((prev) => [...prev, ...newImages]);
       }
     } catch (err) {
       console.error("Error picking image:", err);
@@ -116,11 +202,7 @@ const CreateAdvertisement = () => {
   };
 
   const handleRemoveImage = (index) => {
-    const currentImages = formData.images || [];
-    setFormData((prev) => ({
-      ...prev,
-      images: currentImages.filter((_, i) => i !== index),
-    }));
+    setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   // GPS Location Fetching
@@ -137,249 +219,803 @@ const CreateAdvertisement = () => {
         accuracy: Location.Accuracy.Balanced,
       });
 
-      let addressString = `Lat: ${loc.coords.latitude.toFixed(4)}, Long: ${loc.coords.longitude.toFixed(4)}`;
+      const latNum = loc.coords.latitude;
+      const lngNum = loc.coords.longitude;
+
+      setLatitudeInput(String(latNum));
+      setLongitudeInput(String(lngNum));
+
+      let addressString = `Lat: ${latNum.toFixed(4)}, Long: ${lngNum.toFixed(4)}`;
+      let detectedCity = "";
+      let detectedState = "";
 
       try {
         const [geocode] = await Location.reverseGeocodeAsync({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
+          latitude: latNum,
+          longitude: lngNum,
         });
 
         if (geocode) {
+          detectedCity = geocode.city || geocode.subregion || geocode.district || "";
+          detectedState = geocode.region || "";
           const parts = [
             geocode.name || geocode.street,
-            geocode.district || geocode.subregion,
+            geocode.district,
             geocode.city,
             geocode.region,
           ].filter(Boolean);
-          if (parts.length > 0) {
-            addressString = parts.join(", ");
-          }
+          if (parts.length > 0) addressString = parts.join(", ");
         }
       } catch (gErr) {
         console.log("Geocode error:", gErr);
       }
 
-      const locationObj = {
-        address: addressString,
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      };
+      setAddressInput(addressString);
+      setCityInput(detectedCity);
+      setStateInput(detectedState);
 
-      setFormData((prev) => ({ ...prev, location: locationObj }));
-      if (errors.location) {
-        setErrors((prev) => ({ ...prev, location: null }));
-      }
+      setLocation({
+        address: addressString,
+        city: detectedCity,
+        state: detectedState,
+        latitude: latNum,
+        longitude: lngNum,
+      });
+
+      if (errors.location) setErrors((prev) => ({ ...prev, location: null }));
     } catch (err) {
-      Alert.alert("Location Error", "Unable to fetch location. Please try again.");
+      Alert.alert("Location Error", "Unable to fetch location. Please enter location manually.");
     } finally {
       setGettingLocation(false);
     }
   };
 
-  const handleSubmit = async () => {
-    const newErrors = {};
-    allFields.forEach((field) => {
-      if (field.required && !formData[field.id]) {
-        newErrors[field.id] = `${field.label || field.id} is required`;
-      }
-    });
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      Alert.alert("Validation Error", "Please fill in all required fields accurately.");
+  const handleGeocodeAddress = async () => {
+    const queryStr = [addressInput, cityInput, stateInput].filter(Boolean).join(", ");
+    if (!queryStr.trim()) {
+      Alert.alert("Input Required", "Please enter Address or City first.");
       return;
     }
-
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      Alert.alert(
-        "Success 🎉",
-        `Your ${categoryInfo.title || "advertisement"} has been published successfully!`,
-        [
-          {
-            text: "My Advertisements",
-            onPress: () => router.push("/Seller/Screens/AdvertisementsScreen"),
-          },
-        ]
-      );
-    }, 600);
+    try {
+      setGettingLocation(true);
+      const results = await Location.geocodeAsync(queryStr);
+      if (results && results.length > 0) {
+        const { latitude: latVal, longitude: lngVal } = results[0];
+        setLatitudeInput(String(latVal));
+        setLongitudeInput(String(lngVal));
+        Alert.alert("Coordinates Found", `Lat: ${latVal.toFixed(4)}, Lng: ${lngVal.toFixed(4)}`);
+      } else {
+        Alert.alert("Not Found", "Could not geocode address. Please type coordinates manually.");
+      }
+    } catch (err) {
+      Alert.alert("Geocode Error", "Unable to find coordinates for specified address.");
+    } finally {
+      setGettingLocation(false);
+    }
   };
 
-  const iconName = Array.isArray(categoryInfo.icon)
-    ? categoryInfo.icon[0]
-    : categoryInfo.icon;
+  const validateCurrentStep = () => {
+    const errs = {};
+    if (currentStep === 1) {
+      if (!title.trim()) errs.title = "Ad title is required";
+    } else if (currentStep === 2) {
+      let latVal = Number(latitudeInput);
+      let lngVal = Number(longitudeInput);
+      if (isNaN(latVal) || latVal < -90 || latVal > 90) {
+        errs.location = "Valid Latitude between -90 and 90 is required.";
+      }
+      if (isNaN(lngVal) || lngVal < -180 || lngVal > 180) {
+        errs.location = "Valid Longitude between -180 and 180 is required.";
+      }
+    } else if (currentStep === 3) {
+      if (!price.trim() || isNaN(Number(price)) || Number(price) < 0) {
+        errs.price = "Valid non-negative price is required";
+      }
+    }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleNextStep = () => {
+    if (validateCurrentStep()) {
+      if (currentStep < 5) setCurrentStep(currentStep + 1);
+    } else {
+      Alert.alert("Validation Required", "Please complete all required fields in this step.");
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  const handleSubmit = async () => {
+    let latVal = Number(latitudeInput);
+    let lngVal = Number(longitudeInput);
+
+    if ((isNaN(latVal) || isNaN(lngVal) || (latVal === 0 && lngVal === 0)) && (addressInput || cityInput)) {
+      try {
+        const queryStr = [addressInput, cityInput, stateInput].filter(Boolean).join(", ");
+        const results = await Location.geocodeAsync(queryStr);
+        if (results && results.length > 0) {
+          latVal = results[0].latitude;
+          lngVal = results[0].longitude;
+        }
+      } catch (e) {
+        console.log("Auto geocode on submit failed:", e);
+      }
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const dimensionsVal = mediumSpecs.dimensions || mediumSpecs.screenResolution || "";
+      const visibilityVal = mediumSpecs.visibility || mediumSpecs.operatingHours || "24 Hours";
+      const lightingVal = mediumSpecs.lighting || "Non-lit";
+
+      const payload = {
+        category,
+        title: title.trim(),
+        description: description.trim(),
+        displayType,
+        price: Number(price),
+        priceUnit,
+        minimumBookingDuration,
+        dimensions: dimensionsVal,
+        visibility: visibilityVal,
+        lighting: lightingVal,
+        operatingHours: mediumSpecs.operatingHours || "24 Hours",
+        bookingType,
+        estimatedDailyImpressions: Number(estimatedDailyImpressions) || 0,
+        estimatedFootfall: Number(estimatedFootfall) || 0,
+        audienceInformation: selectedAudience,
+        amenities: selectedAmenities,
+        specifications: mediumSpecs,
+        images,
+        location: {
+          address: addressInput.trim() || location?.address || "Location Specified",
+          city: cityInput.trim() || location?.city || "",
+          state: stateInput.trim() || location?.state || "",
+          latitude: latVal,
+          longitude: lngVal,
+        },
+        availability: {
+          isAvailable: true,
+        },
+      };
+
+      const response = await createAdSpaceApi(payload);
+
+      if (response?.success) {
+        setModalConfig({
+          visible: true,
+          type: "success",
+          title: "Ad Space Published! 🎉",
+          message: "Your advertisement space has been published successfully and is now active for buyer bookings.",
+          details: {
+            Title: title.trim(),
+            Category: categoryInfo.title || category,
+            Price: `₹${Number(price).toLocaleString("en-IN")} / ${priceUnit.replace("per ", "")}`,
+            Location: cityInput.trim() || "Location Specified",
+          },
+          primaryBtnText: "Manage My Ads",
+          onPrimaryPress: () => {
+            setModalConfig((prev) => ({ ...prev, visible: false }));
+            router.push("/Seller/Screens/AdvertisementsScreen");
+          },
+        });
+      }
+    } catch (err) {
+      setModalConfig({
+        visible: true,
+        type: "error",
+        title: "Submission Failed ⚠️",
+        message: err.message || "Failed to publish advertisement space. Please check fields and try again.",
+        primaryBtnText: "Review Form",
+        onPrimaryPress: () => setModalConfig((prev) => ({ ...prev, visible: false })),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {/* Inlined Header */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitleText} numberOfLines={1}>
-              {categoryInfo.title ? `Post ${categoryInfo.title} Ad` : "Post Advertisement"}
+              List New Ad Space
             </Text>
           </View>
-          <View style={{ width: wp("10%") }} />
+          <Text style={styles.stepBadgeText}>Step {currentStep} of 5</Text>
         </View>
 
-        <ScrollView
+        {/* ── Multi-step Progress Bar Indicator ── */}
+        <View style={styles.stepProgressContainer}>
+          <View style={styles.stepProgressTrack}>
+            <View style={[styles.stepProgressFill, { width: `${(currentStep / 5) * 100}%` }]} />
+          </View>
+          <View style={styles.stepRow}>
+            {STEPS.map((s) => {
+              const isActive = currentStep === s.id;
+              const isDone = currentStep > s.id;
+              return (
+                <TouchableOpacity
+                  key={s.id}
+                  style={styles.stepItem}
+                  onPress={() => {
+                    if (s.id < currentStep || validateCurrentStep()) {
+                      setCurrentStep(s.id);
+                    }
+                  }}
+                >
+                  <View style={[styles.stepCircle, isDone && styles.stepDone, isActive && styles.stepActive]}>
+                    <Ionicons
+                      name={isDone ? "checkmark" : s.icon}
+                      size={12}
+                      color={isActive || isDone ? colors.white : colors.textMuted}
+                    />
+                  </View>
+                  <Text style={[styles.stepLabel, isActive && styles.stepLabelActive]}>
+                    {s.title}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <KeyboardAwareScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          enableOnAndroid={true}
+          enableAutomaticScroll={true}
+          extraScrollHeight={Platform.OS === "ios" ? 40 : 100}
         >
-          {/* Hero Category Banner */}
-          <View style={styles.topTitleSection}>
-            <View
-              style={[
-                styles.heroIconBg,
-                { backgroundColor: `${categoryInfo.iconColor || colors.primary}12` },
-              ]}
-            >
-              <Ionicons
-                name={iconName || "megaphone-outline"}
-                size={28}
-                color={categoryInfo.iconColor || colors.primary}
-              />
-            </View>
-            <Text style={styles.mainHeading}>
-              Create {categoryInfo.title || "Ad"} Advertisement
-            </Text>
-            <Text style={styles.subHeading}>
-              Fill the information below to publish your advertisement.
-            </Text>
-          </View>
+          {/* STEP 1: BASIC INFORMATION */}
+          {/* STEP 1: BASIC INFORMATION */}
+          {currentStep === 1 && (
+            <View style={styles.stepSection}>
+              <Text style={styles.stepHeading}>Basic Information</Text>
+              <Text style={styles.stepSubheading}>Select your ad space category and basic details.</Text>
 
-          {/* Form Fields Section */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={styles.sectionIconBg}>
-                <Ionicons name="create-outline" size={18} color={colors.primary} />
-              </View>
-              <Text style={styles.sectionTitle}>Ad Details</Text>
-            </View>
-
-            {allFields.map((field) => (
-              <View key={field.id} style={styles.fieldContainer}>
+              {/* Ad Space Category Selector */}
+              <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>
-                  {field.label} {field.required && <Text style={styles.requiredStar}>*</Text>}
+                  Select Advertising Medium / Category <Text style={styles.requiredStar}>*</Text>
                 </Text>
-
-                <TextInput
-                  style={[
-                    styles.input,
-                    field.type === "textarea" && styles.textarea,
-                    errors[field.id] && styles.inputError,
-                  ]}
-                  value={formData[field.id] || ""}
-                  onChangeText={(val) => handleInputChange(field.id, val)}
-                  placeholder={`Enter ${field.label.toLowerCase()}`}
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType={field.type === "number" ? "numeric" : "default"}
-                  multiline={field.type === "textarea"}
-                  numberOfLines={field.type === "textarea" ? 3 : 1}
-                />
-
-                {errors[field.id] && <Text style={styles.errorText}>{errors[field.id]}</Text>}
-              </View>
-            ))}
-
-            {/* Location Section */}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Location</Text>
-              <TouchableOpacity
-                style={styles.locationButton}
-                onPress={handleFetchCurrentLocation}
-                disabled={gettingLocation}
-              >
-                {gettingLocation ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <>
-                    <Ionicons name="location-outline" size={18} color={colors.white} />
-                    <Text style={styles.locationBtnText}>Use Current GPS Location</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {formData.location && (
-                <View style={styles.locationBox}>
-                  <Ionicons name="location" size={16} color={colors.primary} />
-                  <Text style={styles.locationText}>{formData.location.address}</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Images Upload Section */}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.fieldLabel}>Upload Photos</Text>
-              <View style={styles.imagePickerRow}>
-                <TouchableOpacity
-                  style={styles.pickBtn}
-                  onPress={() => handlePickImage(false)}
-                >
-                  <Ionicons name="images-outline" size={18} color={colors.primary} />
-                  <Text style={styles.pickBtnText}>Gallery</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.pickBtn}
-                  onPress={() => handlePickImage(true)}
-                >
-                  <Ionicons name="camera-outline" size={18} color={colors.primary} />
-                  <Text style={styles.pickBtnText}>Camera</Text>
-                </TouchableOpacity>
-              </View>
-
-              {formData.images.length > 0 && (
-                <View style={styles.imageGrid}>
-                  {formData.images.map((uri, idx) => (
-                    <View key={idx} style={styles.imageWrapper}>
-                      <Image source={{ uri }} style={styles.previewImage} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                  {OFFLINE_AD_CATEGORIES.map((catItem) => {
+                    const isSel = category === catItem.categoryName;
+                    return (
                       <TouchableOpacity
-                        style={styles.removeBtn}
-                        onPress={() => handleRemoveImage(idx)}
+                        key={catItem.id}
+                        style={[
+                          styles.chipLarge,
+                          isSel && { backgroundColor: catItem.color || colors.primary, borderColor: catItem.color || colors.primary },
+                        ]}
+                        onPress={() => {
+                          setCategory(catItem.categoryName);
+                          setMediumSpecs({});
+                        }}
                       >
-                        <Ionicons name="close-circle" size={18} color={colors.error} />
+                        <Ionicons
+                          name={catItem.icon || "easel-outline"}
+                          size={15}
+                          color={isSel ? colors.white : (catItem.color || colors.primary)}
+                        />
+                        <Text style={[styles.chipText, isSel && styles.chipTextActive]}>
+                          {catItem.title}
+                        </Text>
                       </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+                <View style={styles.selectedCatNotice}>
+                  <Ionicons name="information-circle-outline" size={14} color={colors.primary} />
+                  <Text style={styles.selectedCatNoticeText}>
+                    Form fields will dynamically adjust for <Text style={{ fontWeight: "800", color: colors.textPrimary }}>{categoryInfo.title}</Text>.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Title */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>
+                  Ad Space Title <Text style={styles.requiredStar}>*</Text>
+                </Text>
+                <TextInput
+                  style={[styles.input, errors.title && styles.inputError]}
+                  value={title}
+                  onChangeText={(val) => {
+                    setTitle(val);
+                    if (errors.title) setErrors((prev) => ({ ...prev, title: null }));
+                  }}
+                  placeholder={`e.g. Prime ${categoryInfo.title || "Ad Space"} at Main Junction`}
+                  placeholderTextColor={colors.textMuted}
+                />
+                {errors.title && <Text style={styles.errorText}>{errors.title}</Text>}
+              </View>
+
+              {/* Display Type */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Display / Media Format</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                  {DISPLAY_TYPES.map((type) => {
+                    const isSel = displayType === type;
+                    return (
+                      <TouchableOpacity
+                        key={type}
+                        style={[styles.chip, isSel && styles.chipActive]}
+                        onPress={() => setDisplayType(type)}
+                      >
+                        <Text style={[styles.chipText, isSel && styles.chipTextActive]}>{type}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* Description */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Description</Text>
+                <TextInput
+                  style={[styles.input, styles.textarea]}
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="Provide location highlights, view angles, or campaign benefits..."
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* STEP 2: LOCATION & COORDINATES */}
+          {currentStep === 2 && (
+            <View style={styles.stepSection}>
+              <Text style={styles.stepHeading}>Location & Coords</Text>
+              <Text style={styles.stepSubheading}>Where is this advertisement space located?</Text>
+
+              {/* Location Mode Toggle Pills */}
+              <View style={styles.locationModeRow}>
+                <TouchableOpacity
+                  style={[styles.locationModeBtn, locationMode === "gps" && styles.locationModeBtnActive]}
+                  onPress={() => setLocationMode("gps")}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="navigate"
+                    size={14}
+                    color={locationMode === "gps" ? colors.white : colors.textSecondary}
+                  />
+                  <Text style={[styles.locationModeText, locationMode === "gps" && styles.locationModeTextActive]}>
+                    GPS Auto-Detect
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.locationModeBtn, locationMode === "manual" && styles.locationModeBtnActive]}
+                  onPress={() => setLocationMode("manual")}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={14}
+                    color={locationMode === "manual" ? colors.white : colors.textSecondary}
+                  />
+                  <Text style={[styles.locationModeText, locationMode === "manual" && styles.locationModeTextActive]}>
+                    Manual Input
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {locationMode === "gps" ? (
+                <TouchableOpacity
+                  style={styles.locationButton}
+                  onPress={handleFetchCurrentLocation}
+                  disabled={gettingLocation}
+                  activeOpacity={0.85}
+                >
+                  {gettingLocation ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <>
+                      <Ionicons name="location" size={18} color={colors.white} />
+                      <Text style={styles.locationBtnText}>Detect GPS Location</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.geocodeBtn}
+                  onPress={handleGeocodeAddress}
+                  disabled={gettingLocation}
+                  activeOpacity={0.85}
+                >
+                  {gettingLocation ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <>
+                      <Ionicons name="sparkles-outline" size={15} color={colors.primary} />
+                      <Text style={styles.geocodeBtnText}>Auto-fetch Coords from Address</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              <View style={styles.locationInputsCard}>
+                <View style={styles.subFieldContainer}>
+                  <Text style={styles.subLabel}>Address / Location Landmark</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={addressInput}
+                    onChangeText={setAddressInput}
+                    placeholder="e.g. M.G. Road, Opp. City Mall"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                </View>
+
+                <View style={styles.rowInputs}>
+                  <View style={[styles.subFieldContainer, { flex: 1 }]}>
+                    <Text style={styles.subLabel}>City</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={cityInput}
+                      onChangeText={setCityInput}
+                      placeholder="e.g. Mumbai"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                  </View>
+
+                  <View style={[styles.subFieldContainer, { flex: 1 }]}>
+                    <Text style={styles.subLabel}>State</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={stateInput}
+                      onChangeText={setStateInput}
+                      placeholder="e.g. Maharashtra"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.rowInputs}>
+                  <View style={[styles.subFieldContainer, { flex: 1 }]}>
+                    <Text style={styles.subLabel}>Latitude</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={latitudeInput}
+                      onChangeText={setLatitudeInput}
+                      placeholder="e.g. 19.0760"
+                      placeholderTextColor={colors.textMuted}
+                      keyboardType="numeric"
+                    />
+                  </View>
+
+                  <View style={[styles.subFieldContainer, { flex: 1 }]}>
+                    <Text style={styles.subLabel}>Longitude</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={longitudeInput}
+                      onChangeText={setLongitudeInput}
+                      placeholder="e.g. 72.8777"
+                      placeholderTextColor={colors.textMuted}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {errors.location && <Text style={styles.errorText}>{errors.location}</Text>}
+            </View>
+          )}
+
+          {/* STEP 3: PRICING & SPECIFICATIONS */}
+          {currentStep === 3 && (
+            <View style={styles.stepSection}>
+              <Text style={styles.stepHeading}>Pricing & Specifications</Text>
+              <Text style={styles.stepSubheading}>Set your rates, booking rules and medium features.</Text>
+
+              {/* Price */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>
+                  Rate (₹) <Text style={styles.requiredStar}>*</Text>
+                </Text>
+                <TextInput
+                  style={[styles.input, errors.price && styles.inputError]}
+                  value={price}
+                  onChangeText={(val) => {
+                    setPrice(val);
+                    if (errors.price) setErrors((prev) => ({ ...prev, price: null }));
+                  }}
+                  placeholder="e.g. 45000"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="numeric"
+                />
+                {errors.price && <Text style={styles.errorText}>{errors.price}</Text>}
+
+                <View style={styles.priceUnitSubContainer}>
+                  <Text style={styles.subLabel}>Billing Duration Unit:</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                    {PRICE_UNITS.map((unit) => {
+                      const isSel = priceUnit === unit;
+                      return (
+                        <TouchableOpacity
+                          key={unit}
+                          style={[styles.chipLarge, isSel && styles.chipActive]}
+                          onPress={() => setPriceUnit(unit)}
+                        >
+                          <Text style={[styles.chipText, isSel && styles.chipTextActive]}>{unit}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              </View>
+
+              {/* Booking Approval Model */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Booking Approval Model</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                  {BOOKING_TYPES.map((bType) => {
+                    const isSel = bookingType === bType;
+                    return (
+                      <TouchableOpacity
+                        key={bType}
+                        style={[styles.chipLarge, isSel && styles.chipActive]}
+                        onPress={() => setBookingType(bType)}
+                      >
+                        <Ionicons
+                          name={bType === "Instant Booking" ? "flash-outline" : "paper-plane-outline"}
+                          size={14}
+                          color={isSel ? colors.white : colors.primary}
+                        />
+                        <Text style={[styles.chipText, isSel && styles.chipTextActive]}>{bType}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* Dynamic Specs */}
+              {dynamicFields.length > 0 && (
+                <View style={styles.dynamicSection}>
+                  <View style={styles.dynamicHeader}>
+                    <Ionicons name="options-outline" size={18} color={colors.primary} />
+                    <Text style={styles.dynamicTitle}>{categoryInfo.title} Specs</Text>
+                  </View>
+
+                  {dynamicFields.map((field) => (
+                    <View key={field.id} style={styles.fieldContainer}>
+                      <Text style={styles.fieldLabel}>{field.label}</Text>
+                      {field.type === "chip" || field.type === "select" || Array.isArray(field.options) ? (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                          {field.options.map((opt) => {
+                            const isSel = mediumSpecs[field.id] === opt;
+                            return (
+                              <TouchableOpacity
+                                key={opt}
+                                style={[styles.chipLarge, isSel && styles.chipActive]}
+                                onPress={() => handleSpecChange(field.id, opt)}
+                                activeOpacity={0.8}
+                              >
+                                <Text style={[styles.chipText, isSel && styles.chipTextActive]}>{opt}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      ) : (
+                        <TextInput
+                          style={styles.input}
+                          value={mediumSpecs[field.id] || ""}
+                          onChangeText={(val) => handleSpecChange(field.id, val)}
+                          placeholder={field.placeholder || `Enter ${field.label}`}
+                          placeholderTextColor={colors.textMuted}
+                          keyboardType={field.keyboardType || "default"}
+                        />
+                      )}
                     </View>
                   ))}
                 </View>
               )}
-            </View>
-          </View>
-        </ScrollView>
 
-        {/* Bottom Action Bar */}
-        <View style={styles.bottomActionBar}>
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              isSubmitting && styles.submitButtonDisabled,
-            ]}
-            activeOpacity={0.8}
-            onPress={handleSubmit}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator size="small" color={colors.white} />
-            ) : (
-              <>
-                <Text style={styles.submitButtonText}>Publish Advertisement</Text>
-                <Ionicons name="arrow-forward" size={18} color={colors.white} />
-              </>
+              {/* Target Audience */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Target Audience</Text>
+                <View style={styles.wrapChipRow}>
+                  {AUDIENCE_OPTIONS.map((aud) => {
+                    const isSel = selectedAudience.includes(aud);
+                    return (
+                      <TouchableOpacity
+                        key={aud}
+                        style={[styles.chip, isSel && styles.chipActive]}
+                        onPress={() => toggleAudience(aud)}
+                      >
+                        <Text style={[styles.chipText, isSel && styles.chipTextActive]}>{aud}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Amenities */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Features & Amenities</Text>
+                <View style={styles.wrapChipRow}>
+                  {AMENITY_OPTIONS.map((amenity) => {
+                    const isSel = selectedAmenities.includes(amenity);
+                    return (
+                      <TouchableOpacity
+                        key={amenity}
+                        style={[styles.chip, isSel && styles.chipActive]}
+                        onPress={() => toggleAmenity(amenity)}
+                      >
+                        <Text style={[styles.chipText, isSel && styles.chipTextActive]}>{amenity}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* STEP 4: MEDIA & PHOTOS */}
+          {currentStep === 4 && (
+            <View style={styles.stepSection}>
+              <Text style={styles.stepHeading}>Upload Photos</Text>
+              <Text style={styles.stepSubheading}>Upload clear photos of your advertising space to attract buyers.</Text>
+
+              <View style={styles.dropZoneCard}>
+                <Ionicons name="cloud-upload-outline" size={36} color={colors.primary} />
+                <Text style={styles.dropTitle}>+ Add Photos</Text>
+                <Text style={styles.dropSub}>Upload photos from your gallery or take live photos</Text>
+
+                <View style={styles.imagePickerRow}>
+                  <TouchableOpacity style={styles.pickBtn} onPress={() => handlePickImage(false)}>
+                    <Ionicons name="images-outline" size={16} color={colors.primary} />
+                    <Text style={styles.pickBtnText}>Gallery</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.pickBtn} onPress={() => handlePickImage(true)}>
+                    <Ionicons name="camera-outline" size={16} color={colors.primary} />
+                    <Text style={styles.pickBtnText}>Camera</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {images.length > 0 && (
+                <View style={styles.photosGridSection}>
+                  <Text style={styles.fieldLabel}>Uploaded Photos ({images.length})</Text>
+                  <View style={styles.photosGrid}>
+                    {images.map((imgUri, idx) => (
+                      <View key={idx} style={styles.photoGridWrapper}>
+                        <Image source={{ uri: imgUri }} style={styles.photoGridImg} />
+                        {idx === 0 && (
+                          <View style={styles.coverBadge}>
+                            <Text style={styles.coverBadgeText}>COVER PHOTO</Text>
+                          </View>
+                        )}
+                        <TouchableOpacity style={styles.removeBadge} onPress={() => handleRemoveImage(idx)}>
+                          <Ionicons name="close-circle" size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* STEP 5: REVIEW & PUBLISH */}
+          {currentStep === 5 && (
+            <View style={styles.stepSection}>
+              <Text style={styles.stepHeading}>Review & Publish</Text>
+              <Text style={styles.stepSubheading}>Double-check listing details before making it live for buyers.</Text>
+
+              <View style={styles.reviewCard}>
+                {images.length > 0 ? (
+                  <Image source={{ uri: images[0] }} style={styles.reviewCoverImg} />
+                ) : (
+                  <View style={styles.noImgCover}>
+                    <Ionicons name="image-outline" size={32} color={colors.textMuted} />
+                    <Text style={styles.noImgText}>No image uploaded</Text>
+                  </View>
+                )}
+
+                <View style={styles.reviewContent}>
+                  <View style={styles.reviewTitleRow}>
+                    <Text style={styles.reviewTitle}>{title || "Untitled Ad Space"}</Text>
+                    <Text style={styles.reviewPrice}>
+                      ₹{Number(price || 0).toLocaleString("en-IN")} <Text style={{ fontSize: 11, color: colors.textSecondary }}>/ {priceUnit.replace("per ", "")}</Text>
+                    </Text>
+                  </View>
+
+                  <View style={styles.reviewInfoRow}>
+                    <Ionicons name="location-outline" size={13} color="#EF4444" />
+                    <Text style={styles.reviewInfoText}>
+                      {cityInput ? `${cityInput}, ${stateInput}` : addressInput || "Location Specified"}
+                    </Text>
+                  </View>
+
+                  <View style={styles.reviewInfoRow}>
+                    <Ionicons name="pricetag-outline" size={13} color={colors.primary} />
+                    <Text style={styles.reviewInfoText}>
+                      {categoryInfo.title || category} • {displayType}
+                    </Text>
+                  </View>
+
+                  {sellerUser && (
+                    <View style={styles.contactNoticeBanner}>
+                      <Ionicons name="call-outline" size={15} color="#059669" />
+                      <Text style={styles.contactNoticeText}>
+                        Buyer Contact Number:{" "}
+                        <Text style={{ fontWeight: "700", color: colors.textPrimary }}>
+                          {sellerUser.mobileNumber || sellerUser.mobile || sellerUser.phone || sellerUser.email}
+                        </Text>
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Step Navigation Actions */}
+          <View style={styles.stepNavRow}>
+            {currentStep > 1 && (
+              <TouchableOpacity
+                style={styles.prevBtn}
+                onPress={handlePrevStep}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="arrow-back" size={16} color={colors.textPrimary} />
+                <Text style={styles.prevBtnText}>Back</Text>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
-        </View>
+
+            {currentStep < 5 ? (
+              <TouchableOpacity
+                style={styles.nextBtn}
+                onPress={handleNextStep}
+                activeOpacity={0.88}
+              >
+                <Text style={styles.nextBtnText}>Continue</Text>
+                <Ionicons name="arrow-forward" size={16} color={colors.white} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.submitBtn}
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+                activeOpacity={0.88}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color={colors.white} size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.submitBtnText}>Publish Advertisement Space</Text>
+                    <Ionicons name="arrow-forward" size={18} color={colors.white} />
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
+
+      <FeedbackModal {...modalConfig} />
     </SafeAreaView>
   );
 };
@@ -389,233 +1025,540 @@ export default CreateAdvertisement;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.white,
   },
+
   header: {
-    height: hp("7%"),
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: wp("5%"),
-    backgroundColor: colors.background,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "android" ? 10 : 6,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   backButton: {
-    width: wp("10%"),
-    height: wp("10%"),
-    borderRadius: wp("5%"),
-    borderWidth: 1,
-    borderColor: colors.border,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.neutralLight,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.white,
   },
   headerTitleContainer: {
     flex: 1,
     alignItems: "center",
   },
   headerTitleText: {
-    fontSize: wp("4.5%"),
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "800",
     color: colors.textPrimary,
   },
-  scrollContent: {
-    paddingHorizontal: wp("5%"),
-    paddingBottom: hp("12%"),
+  stepBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.primary,
   },
-  topTitleSection: {
-    marginTop: hp("1.5%"),
-    marginBottom: hp("2.5%"),
-    alignItems: "flex-start",
+
+  // Multi-step Progress Bar
+  stepProgressContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
   },
-  heroIconBg: {
-    width: wp("13%"),
-    height: wp("13%"),
-    borderRadius: wp("3.5%"),
+  stepProgressTrack: {
+    height: 4,
+    backgroundColor: colors.neutralLight,
+    borderRadius: 2,
+    overflow: "hidden",
+    marginBottom: 10,
+  },
+  stepProgressFill: {
+    height: "100%",
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
+  stepRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  stepItem: {
+    alignItems: "center",
+    gap: 4,
+  },
+  stepCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.neutralLight,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: hp("1.5%"),
   },
-  mainHeading: {
-    fontSize: wp("5.8%"),
+  stepActive: {
+    backgroundColor: colors.primary,
+  },
+  stepDone: {
+    backgroundColor: colors.textPrimary,
+  },
+  stepLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: colors.textMuted,
+  },
+  stepLabelActive: {
+    color: colors.primary,
+    fontWeight: "800",
+  },
+
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: hp("12%"),
+  },
+
+  stepSection: {
+    gap: 18,
+  },
+  stepHeading: {
+    fontSize: 22,
     fontWeight: "800",
     color: colors.textPrimary,
     letterSpacing: -0.3,
-    marginBottom: hp("0.8%"),
   },
-  subHeading: {
-    fontSize: wp("3.5%"),
+  stepSubheading: {
+    fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: wp("5%"),
+    marginTop: -12,
+    lineHeight: 18,
   },
-  sectionCard: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: wp("4.5%"),
-    marginBottom: hp("2.2%"),
-    elevation: 2,
+
+  fieldContainer: {
+    gap: 8,
   },
-  sectionHeaderRow: {
+  selectedCatNotice: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: hp("2%"),
-    paddingBottom: hp("1%"),
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: 10,
-  },
-  sectionIconBg: {
-    width: 32,
-    height: 32,
+    gap: 6,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: colors.accentLight,
-    justifyContent: "center",
-    alignItems: "center",
+    marginTop: 4,
   },
-  sectionTitle: {
-    fontSize: wp("4.2%"),
+  selectedCatNoticeText: {
+    fontSize: 12,
+    color: colors.primary,
+    flex: 1,
+  },
+  fieldLabel: {
+    fontSize: 13,
     fontWeight: "700",
     color: colors.textPrimary,
   },
-  fieldContainer: {
-    marginBottom: hp("2%"),
-  },
-  fieldLabel: {
-    fontSize: wp("3.6%"),
-    fontWeight: "600",
-    color: colors.textPrimary,
-    marginBottom: hp("0.8%"),
-  },
   requiredStar: {
-    color: colors.error,
+    color: "#EF4444",
   },
+  subLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textSecondary,
+    marginBottom: 3,
+  },
+  subFieldContainer: {
+    gap: 2,
+  },
+
   input: {
-    backgroundColor: colors.background,
+    width: "100%",
+    height: 48,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: wp("3.5%"),
-    paddingVertical: hp("1.2%"),
-    fontSize: wp("3.8%"),
+    backgroundColor: colors.white,
+    paddingHorizontal: 14,
+    fontSize: 14,
     color: colors.textPrimary,
   },
+  inputError: {
+    borderColor: "#EF4444",
+  },
   textarea: {
-    height: hp("10%"),
+    height: 80,
+    paddingTop: 12,
     textAlignVertical: "top",
   },
-  inputError: {
-    borderColor: colors.error,
+
+  priceUnitSubContainer: {
+    marginTop: 8,
+    gap: 6,
   },
-  errorText: {
-    fontSize: wp("3%"),
-    color: colors.error,
-    marginTop: 4,
+
+  chipRow: {
+    gap: 8,
+    paddingVertical: 2,
   },
-  locationButton: {
+  wrapChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipLarge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  chipTextActive: {
+    color: colors.white,
+    fontWeight: "700",
+  },
+
+  dynamicSection: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 16,
+    gap: 16,
+  },
+  dynamicHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dynamicTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: colors.textPrimary,
+  },
+
+  // Location Mode
+  locationModeRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  locationModeBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.primary,
-    paddingVertical: hp("1.2%"),
+    gap: 6,
+    paddingVertical: 10,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  locationModeBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  locationModeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  locationModeTextActive: {
+    color: colors.white,
+    fontWeight: "700",
+  },
+  locationButton: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     gap: 8,
   },
   locationBtnText: {
     color: colors.white,
-    fontWeight: "600",
-    fontSize: wp("3.5%"),
+    fontSize: 13,
+    fontWeight: "700",
   },
-  locationBox: {
+  geocodeBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.background,
+    justifyContent: "center",
+    gap: 6,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: "#EFF6FF",
+  },
+  geocodeBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+  locationInputsCard: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    padding: wp("3%"),
-    marginTop: hp("1%"),
+    padding: 14,
+    gap: 12,
+  },
+  rowInputs: {
+    flexDirection: "row",
+    gap: 12,
+  },
+
+  // Photos
+  dropZoneCard: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
     gap: 8,
   },
-  locationText: {
-    fontSize: wp("3.4%"),
+  dropTitle: {
+    fontSize: 16,
+    fontWeight: "800",
     color: colors.textPrimary,
-    flex: 1,
+  },
+  dropSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: "center",
   },
   imagePickerRow: {
     flexDirection: "row",
-    gap: wp("3%"),
+    gap: 12,
+    marginTop: 10,
   },
   pickBtn: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.background,
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    paddingVertical: hp("1.2%"),
-    gap: 6,
+    backgroundColor: colors.white,
   },
   pickBtnText: {
-    fontSize: wp("3.4%"),
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
     color: colors.textPrimary,
   },
-  imageGrid: {
+  photosGridSection: {
+    gap: 10,
+    marginTop: 12,
+  },
+  photosGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: wp("2%"),
-    marginTop: hp("1%"),
+    gap: 10,
   },
-  imageWrapper: {
-    position: "relative",
-    width: wp("20%"),
-    height: wp("20%"),
-    borderRadius: 10,
+  photoGridWrapper: {
+    width: (wp("100%") - 60) / 3,
+    height: (wp("100%") - 60) / 3,
+    borderRadius: 14,
     overflow: "hidden",
+    position: "relative",
   },
-  previewImage: {
+  photoGridImg: {
     width: "100%",
     height: "100%",
   },
-  removeBtn: {
+  coverBadge: {
     position: "absolute",
-    top: 2,
-    right: 2,
+    bottom: 4,
+    left: 4,
+    backgroundColor: "rgba(17, 24, 39, 0.8)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  coverBadgeText: {
+    fontSize: 8,
+    fontWeight: "800",
+    color: colors.white,
+  },
+  removeBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
     backgroundColor: colors.white,
+    borderRadius: 9,
+  },
+
+  // Review
+  reviewCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  reviewCoverImg: {
+    width: "100%",
+    height: 180,
+  },
+  noImgCover: {
+    width: "100%",
+    height: 140,
+    backgroundColor: colors.neutralLight,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  noImgText: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  reviewContent: {
+    padding: 16,
+    gap: 10,
+  },
+  reviewTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  reviewTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    paddingRight: 10,
+  },
+  reviewPrice: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.primary,
+  },
+  reviewInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  reviewInfoText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: "500",
+  },
+  contactNoticeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+    padding: 10,
     borderRadius: 10,
+    marginTop: 4,
   },
-  bottomActionBar: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.white,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingHorizontal: wp("5%"),
-    paddingVertical: hp("1.8%"),
-    elevation: 10,
+  contactNoticeText: {
+    flex: 1,
+    fontSize: 11,
+    color: "#047857",
   },
-  submitButton: {
-    backgroundColor: colors.primary,
+
+  // Navigation Buttons
+  stepNavRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 24,
+  },
+  prevBtn: {
+    flex: 1,
+    height: 50,
     borderRadius: 16,
-    paddingVertical: hp("1.6%"),
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 6,
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: colors.white,
-    fontSize: wp("4%"),
+  prevBtnText: {
+    fontSize: 14,
     fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  nextBtn: {
+    flex: 2,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: colors.button,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  nextBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.white,
+  },
+  submitBtn: {
+    flex: 2,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: colors.button,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  submitBtnText: {
+    color: colors.white,
+    fontSize: 12.5,
+    fontWeight: "700",
+  },
+  errorText: {
+    fontSize: 11,
+    color: "#EF4444",
+    marginTop: 2,
   },
 });
