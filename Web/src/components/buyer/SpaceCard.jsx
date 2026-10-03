@@ -27,24 +27,53 @@ const SpaceCard = ({ space, onClick }) => {
       }}
     >
       {/* Thumbnail Image Header */}
-      <div style={{ position: "relative", height: "185px", width: "100%", overflow: "hidden", backgroundColor: "#F3F4F6" }}>
+      <div style={{ position: "relative", height: "195px", width: "100%", overflow: "hidden", backgroundColor: "#0F172A" }}>
+        {/* Ambient Blurred Backdrop */}
+        <img
+          src={thumbnail}
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "blur(16px) brightness(0.65)",
+            transform: "scale(1.15)",
+            opacity: 0.75,
+            pointerEvents: "none"
+          }}
+        />
+        {/* Crisp Foreground Full Image */}
         <img
           src={thumbnail}
           alt={title}
-          style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.4s ease" }}
+          style={{
+            position: "relative",
+            zIndex: 1,
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            transition: "transform 0.4s ease",
+            padding: "4px"
+          }}
         />
         <div style={{
           position: "absolute",
           top: "10px",
           left: "10px",
-          backgroundColor: "#111827",
+          zIndex: 2,
+          backgroundColor: "rgba(17, 24, 39, 0.85)",
+          backdropFilter: "blur(8px)",
           color: "#FFFFFF",
           fontSize: "11px",
           fontWeight: "800",
           padding: "4px 10px",
           borderRadius: "9999px",
           textTransform: "uppercase",
-          letterSpacing: "0.5px"
+          letterSpacing: "0.5px",
+          boxShadow: "0 2px 6px rgba(0,0,0,0.3)"
         }}>
           {category}
         </div>

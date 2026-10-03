@@ -524,11 +524,27 @@ const MapViewPage = () => {
                       }}
                     >
                       {/* Space Image Thumbnail */}
-                      <div style={{ width: "95px", height: "95px", borderRadius: "12px", overflow: "hidden", position: "relative", flexShrink: 0, backgroundColor: "#09090B" }}>
+                      <div style={{ width: "95px", height: "95px", borderRadius: "12px", overflow: "hidden", position: "relative", flexShrink: 0, backgroundColor: "#0F172A" }}>
+                        <img
+                          src={space.images?.[0] || space.image || "https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?w=500&auto=format&fit=crop&q=80"}
+                          alt=""
+                          aria-hidden="true"
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            filter: "blur(12px) brightness(0.65)",
+                            transform: "scale(1.15)",
+                            opacity: 0.75,
+                            pointerEvents: "none"
+                          }}
+                        />
                         <img
                           src={space.images?.[0] || space.image || "https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?w=500&auto=format&fit=crop&q=80"}
                           alt={space.title}
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          style={{ position: "relative", zIndex: 1, width: "100%", height: "100%", objectFit: "contain", padding: "2px" }}
                         />
                         <span style={{
                           position: "absolute",
@@ -820,11 +836,27 @@ const MapViewPage = () => {
               gap: "16px",
               backdropFilter: "blur(20px)"
             }}>
-              <div style={{ width: "115px", height: "115px", borderRadius: "16px", overflow: "hidden", flexShrink: 0, backgroundColor: "#09090B" }}>
+              <div style={{ width: "115px", height: "115px", borderRadius: "16px", overflow: "hidden", flexShrink: 0, position: "relative", backgroundColor: "#0F172A" }}>
+                <img
+                  src={selectedSpace.images?.[0] || selectedSpace.image || "https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?w=500&auto=format&fit=crop&q=80"}
+                  alt=""
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    filter: "blur(12px) brightness(0.65)",
+                    transform: "scale(1.15)",
+                    opacity: 0.75,
+                    pointerEvents: "none"
+                  }}
+                />
                 <img
                   src={selectedSpace.images?.[0] || selectedSpace.image || "https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?w=500&auto=format&fit=crop&q=80"}
                   alt={selectedSpace.title}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  style={{ position: "relative", zIndex: 1, width: "100%", height: "100%", objectFit: "contain", padding: "2px" }}
                 />
               </div>
 

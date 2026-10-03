@@ -62,7 +62,8 @@ const AdvertisementSpaceCard = ({
     >
       {/* ── Card Image Container ── */}
       <View style={styles.imageContainer}>
-        <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />
+        <Image source={{ uri: imageUri }} style={[styles.image, { position: "absolute", inset: 0, opacity: 0.65 }]} resizeMode="cover" blurRadius={12} />
+        <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
 
         {/* Top Badges */}
         <View style={styles.topBadgesRow}>
@@ -200,9 +201,9 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: "100%",
-    height: 155,
+    height: 165,
     position: "relative",
-    backgroundColor: colors.divider,
+    backgroundColor: "#0F172A",
   },
   image: {
     width: "100%",

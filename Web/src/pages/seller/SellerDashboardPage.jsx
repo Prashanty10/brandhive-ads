@@ -176,11 +176,35 @@ const SellerDashboardPage = () => {
                     }}
                   >
                     {/* Header Image Thumbnail Banner */}
-                    <div style={{ position: "relative", height: "160px", overflow: "hidden", backgroundColor: "#111827" }}>
+                    <div style={{ position: "relative", height: "180px", overflow: "hidden", backgroundColor: "#0F172A" }}>
+                      <img
+                        src={img}
+                        alt=""
+                        aria-hidden="true"
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          filter: "blur(16px) brightness(0.65)",
+                          transform: "scale(1.15)",
+                          opacity: isInactive ? 0.45 : 0.75,
+                          pointerEvents: "none"
+                        }}
+                      />
                       <img
                         src={img}
                         alt={space.title}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", opacity: isInactive ? 0.65 : 1 }}
+                        style={{
+                          position: "relative",
+                          zIndex: 1,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "contain",
+                          opacity: isInactive ? 0.75 : 1,
+                          padding: "4px"
+                        }}
                       />
 
                       {/* Category Tag */}

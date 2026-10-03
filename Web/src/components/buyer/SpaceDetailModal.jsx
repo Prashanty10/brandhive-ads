@@ -70,13 +70,42 @@ const SpaceDetailModal = ({ isOpen, onClose, space, onBookingCreated }) => {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }} className="space-detail-grid">
         {/* Left Column: Image Gallery & Specifications */}
         <div>
-          <div style={{ position: "relative", borderRadius: "16px", overflow: "hidden", height: "240px", marginBottom: "16px" }}>
-            <img src={thumbnail} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <div style={{ position: "relative", borderRadius: "16px", overflow: "hidden", height: "260px", marginBottom: "16px", backgroundColor: "#0F172A" }}>
+            <img
+              src={thumbnail}
+              alt=""
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                filter: "blur(16px) brightness(0.65)",
+                transform: "scale(1.15)",
+                opacity: 0.75,
+                pointerEvents: "none"
+              }}
+            />
+            <img
+              src={thumbnail}
+              alt={title}
+              style={{
+                position: "relative",
+                zIndex: 1,
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                padding: "6px"
+              }}
+            />
             <div style={{
               position: "absolute",
               top: "12px",
               left: "12px",
+              zIndex: 2,
               backgroundColor: "rgba(17, 24, 39, 0.85)",
+              backdropFilter: "blur(8px)",
               color: "#FFFFFF",
               fontSize: "12px",
               fontWeight: "700",

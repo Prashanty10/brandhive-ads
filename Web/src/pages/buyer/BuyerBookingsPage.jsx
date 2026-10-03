@@ -168,8 +168,35 @@ const BuyerBookingsPage = () => {
               return (
                 <div key={b._id} className="card booking-card-grid">
                   {/* Space Image */}
-                  <div style={{ height: "120px", borderRadius: "12px", overflow: "hidden", backgroundColor: "#F3F4F6" }}>
-                    <img src={image} alt={space.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <div style={{ position: "relative", height: "130px", borderRadius: "12px", overflow: "hidden", backgroundColor: "#0F172A" }}>
+                    <img
+                      src={image}
+                      alt=""
+                      aria-hidden="true"
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        filter: "blur(14px) brightness(0.65)",
+                        transform: "scale(1.15)",
+                        opacity: 0.75,
+                        pointerEvents: "none"
+                      }}
+                    />
+                    <img
+                      src={image}
+                      alt={space.title}
+                      style={{
+                        position: "relative",
+                        zIndex: 1,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        padding: "4px"
+                      }}
+                    />
                   </div>
 
                   {/* Booking Info */}

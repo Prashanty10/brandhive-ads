@@ -161,8 +161,35 @@ const WelcomePage = () => {
                   zIndex: 1
                 }}
               >
-                <div style={{ width: "100%", height: "155px", borderRadius: "12px", overflow: "hidden", marginBottom: "10px" }}>
-                  <img src={card.img} alt={card.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <div style={{ position: "relative", width: "100%", height: "165px", borderRadius: "12px", overflow: "hidden", marginBottom: "10px", backgroundColor: "#0F172A" }}>
+                  <img
+                    src={card.img}
+                    alt=""
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      filter: "blur(14px) brightness(0.65)",
+                      transform: "scale(1.15)",
+                      opacity: 0.75,
+                      pointerEvents: "none"
+                    }}
+                  />
+                  <img
+                    src={card.img}
+                    alt={card.title}
+                    style={{
+                      position: "relative",
+                      zIndex: 1,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      padding: "4px"
+                    }}
+                  />
                 </div>
                 <span style={{ fontSize: "11px", fontWeight: "700", color: "#2563EB", textTransform: "uppercase", letterSpacing: "0.5px" }}>{card.cat}</span>
                 <p style={{ fontSize: "15px", fontWeight: "800", color: "#111827", lineHeight: "1.2", marginTop: "2px" }}>{card.title}</p>
@@ -250,8 +277,35 @@ const WelcomePage = () => {
           }}>
             {adCards.map((card, idx) => (
               <div key={idx} className="card" style={{ padding: "12px" }}>
-                <div style={{ width: "100%", height: "120px", borderRadius: "10px", overflow: "hidden", marginBottom: "8px" }}>
-                  <img src={card.img} alt={card.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <div style={{ position: "relative", width: "100%", height: "130px", borderRadius: "10px", overflow: "hidden", marginBottom: "8px", backgroundColor: "#0F172A" }}>
+                  <img
+                    src={card.img}
+                    alt=""
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      filter: "blur(14px) brightness(0.65)",
+                      transform: "scale(1.15)",
+                      opacity: 0.75,
+                      pointerEvents: "none"
+                    }}
+                  />
+                  <img
+                    src={card.img}
+                    alt={card.title}
+                    style={{
+                      position: "relative",
+                      zIndex: 1,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      padding: "4px"
+                    }}
+                  />
                 </div>
                 <span style={{ fontSize: "10px", fontWeight: "700", color: "#2563EB", textTransform: "uppercase" }}>{card.cat}</span>
                 <p style={{ fontSize: "13px", fontWeight: "800", color: "#111827", marginTop: "2px" }}>{card.title}</p>
