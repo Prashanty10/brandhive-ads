@@ -334,13 +334,27 @@ const BuyerProfilePage = () => {
   };
 
   const handleSwitchToSeller = async () => {
-    try {
-      await switchRole("seller");
-      navigate("/seller/dashboard");
-    } catch (err) {
-      if (window.confirm("You are not registered as a seller yet. Would you like to register as a seller now?")) {
-        navigate("/profile-setup");
+    const hasSellerRole = user?.roles && Array.isArray(user.roles) && user.roles.includes("seller");
+
+    if (hasSellerRole) {
+      try {
+        await switchRole("seller");
+        navigate("/seller/dashboard");
+      } catch (err) {
+        alert(err?.message || "Failed to switch to Seller mode.");
       }
+    } else {
+      alert(
+        `Register as Seller Required:\n\nYou are currently registered only as a Buyer. To switch to Seller mode, please select 'I am a Space Owner' (Seller) on the registration screen and register using your existing email (${user?.email || ""}) and username (${user?.username || ""}).`
+      );
+      navigate("/auth/register", {
+        state: {
+          role: "seller",
+          email: user?.email,
+          username: user?.username,
+          fromBuyerSwitch: true,
+        },
+      });
     }
   };
 
@@ -497,7 +511,7 @@ const BuyerProfilePage = () => {
                   }}
                 >
                   <RefreshCw size={14} />
-                  {hasSellerRole ? "Switch to Seller Mode" : "Become a Seller"}
+                  Switch to Seller Mode
                 </button>
               </div>
             </div>
@@ -697,16 +711,18 @@ const BuyerProfilePage = () => {
                   </div>
                   <div>
                     <h5 style={{ fontSize: "14px", fontWeight: "700", color: "#0F172A", margin: 0 }}>
-                      {hasSellerRole ? "Switch to Seller Mode" : "Become a Seller"}
+                      Switch to Seller Mode
                     </h5>
                     <p style={{ fontSize: "12px", color: "#64748B", margin: 0 }}>
-                      {hasSellerRole ? "Access your Merchant Seller Dashboard" : "List your ad spaces to earn revenue"}
+                      Access your Merchant Seller Dashboard
                     </p>
                   </div>
                 </div>
-                <span style={{ fontSize: "11px", fontWeight: "800", color: hasSellerRole ? "#7C3AED" : "#059669", backgroundColor: hasSellerRole ? "#F3E8FF" : "#ECFDF5", padding: "4px 10px", borderRadius: "9999px" }}>
-                  {hasSellerRole ? "Seller Active" : "New"}
-                </span>
+                {hasSellerRole ? (
+                  <span style={{ fontSize: "11px", fontWeight: "800", color: "#7C3AED", backgroundColor: "#F3E8FF", padding: "4px 10px", borderRadius: "9999px" }}>
+                    Seller Active
+                  </span>
+                ) : null}
               </div>
             </div>
           </div>

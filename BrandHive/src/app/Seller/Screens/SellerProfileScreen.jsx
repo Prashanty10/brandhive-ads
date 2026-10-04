@@ -42,22 +42,48 @@ const SellerProfileScreen = () => {
   );
 
   const handleSwitchRole = async () => {
-    Alert.alert("Switch Account Mode", "Switch to Buyer mode?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Switch to Buyer",
-        onPress: async () => {
-          try {
-            const res = await switchRoleApi("buyer");
-            if (res?.success) {
-              router.replace("/Buyer/Screens/HomeScreen");
+    const hasBuyerRole =
+      user?.roles && Array.isArray(user.roles) && user.roles.includes("buyer");
+
+    if (hasBuyerRole) {
+      Alert.alert("Switch Account Mode", "Switch to Buyer mode?", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Switch to Buyer",
+          onPress: async () => {
+            try {
+              const res = await switchRoleApi("buyer");
+              if (res?.success) {
+                router.replace("/Buyer/Screens/HomeScreen");
+              }
+            } catch (e) {
+              Alert.alert("Error", e?.message || "Failed to switch mode.");
             }
-          } catch (e) {
-            Alert.alert("Error", e?.message || "Failed to switch mode.");
-          }
+          },
         },
-      },
-    ]);
+      ]);
+    } else {
+      Alert.alert(
+        "Register as Buyer Required",
+        `You are currently registered only as a Seller. To switch to Buyer mode, please select 'I am an Advertiser' (Buyer) on the Role Selection screen and register using your existing email (${user?.email || ""}) and username (${user?.username || ""}).`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Go to Role Selection",
+            onPress: () =>
+              router.push({
+                pathname: "/Buyer/Authentication/RoleSelectionScreen",
+                params: {
+                  email: user?.email,
+                  username: user?.username,
+                  targetRole: "buyer",
+                  showNoticeModal: "true",
+                },
+              }),
+          },
+        ]
+      );
+    }
   };
 
   const handleSignOut = async () => {

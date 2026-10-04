@@ -565,7 +565,8 @@ export const deleteAdSpace = async (req, res) => {
     }
 
     // Verify ownership
-    if (space.seller?.toString() !== userId?.toString()) {
+    const spaceSellerId = space.sellerID || space.seller;
+    if (spaceSellerId && spaceSellerId.toString() !== userId?.toString()) {
       return res.status(403).json({ success: false, message: "Unauthorized to delete this space." });
     }
 

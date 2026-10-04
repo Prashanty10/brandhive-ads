@@ -19,7 +19,6 @@ import {
 import colors from "../../../Theme/colors";
 import { useLocalSearchParams } from "expo-router";
 import { LoginApi } from "../Api/userApi";
-import BrandHiveLogo from "../components/common/BrandHiveLogo";
 const LoginScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -143,7 +142,6 @@ return (
       </View>
 
       <View style={styles.titleContainer}>
-        <BrandHiveLogo size="large" style={{ marginBottom: 12 }} />
         <Text style={styles.titleText}>Welcome Back</Text>
         <Text style={styles.subtitleText}>
           Stay connected by signing in with your email and password to access

@@ -1,23 +1,36 @@
-import React, { useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
   Animated,
   StyleSheet,
   Pressable,
+  TouchableOpacity,
   StatusBar,
+  Modal,
 } from "react-native";
 import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
 } from "react-native-responsive-screen";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import colors from "../../../Theme/colors";
-import BrandHiveLogo from "../../components/common/BrandHiveLogo";
+import BrandHiveLogo from "../components/common/BrandHiveLogo";
 
 const RoleSelectionScreen = () => {
   const router = useRouter();
+  const params = useLocalSearchParams();
+
+  const prefilledEmail = params?.email ? String(params.email) : "";
+  const prefilledUsername = params?.username ? String(params.username) : "";
+  const targetRole = params?.targetRole ? String(params.targetRole) : (params?.role ? String(params.role) : "seller");
+  const isTargetBuyer = targetRole === "buyer";
+
+  const [showNoticeModal, setShowNoticeModal] = useState(
+    params?.showNoticeModal === "true",
+  );
+
   const centerScale = useRef(new Animated.Value(0)).current;
 
   const leftTranslateX = useRef(new Animated.Value(0)).current;
@@ -154,7 +167,11 @@ const RoleSelectionScreen = () => {
           onPress={() =>
             router.push({
               pathname: "/Buyer/Authentication/RegisterScreen",
-              params: { role: "buyer" },
+              params: {
+                role: "buyer",
+                email: prefilledEmail,
+                username: prefilledUsername,
+              },
             })
           }
         >
@@ -185,7 +202,11 @@ const RoleSelectionScreen = () => {
           onPress={() =>
             router.push({
               pathname: "/Buyer/Authentication/RegisterScreen",
-              params: { role: "seller" },
+              params: {
+                role: "seller",
+                email: prefilledEmail,
+                username: prefilledUsername,
+              },
             })
           }
         >
@@ -207,11 +228,118 @@ const RoleSelectionScreen = () => {
           </View>
         </Pressable>
       </Animated.View>
+
+      {/* Modal notice for users switching between Buyer and Seller modes */}
+      <Modal
+        visible={showNoticeModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowNoticeModal(false)}
+      >
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.content}>
+            <View style={[modalStyles.iconBadge, { backgroundColor: isTargetBuyer ? "#EFF6FF" : "#F3E8FF" }]}>
+              <Ionicons
+                name={isTargetBuyer ? "megaphone" : "storefront"}
+                size={32}
+                color={isTargetBuyer ? "#2563EB" : "#7C3AED"}
+              />
+            </View>
+            <Text style={modalStyles.title}>
+              {isTargetBuyer ? "Register as Buyer" : "Register as Seller"}
+            </Text>
+            <Text style={modalStyles.message}>
+              You are currently registered only as {isTargetBuyer ? "a Seller" : "a Buyer"}. To switch to {isTargetBuyer ? "Buyer" : "Seller"} mode, please select{" "}
+              <Text style={{ fontWeight: "700", color: "#111827" }}>
+                {isTargetBuyer ? '"I am an Advertiser"' : '"I am a Space Owner"'}
+              </Text> ({isTargetBuyer ? "Buyer" : "Seller"}) below and register using your existing email address
+              {prefilledEmail ? <Text style={{ fontWeight: "700", color: isTargetBuyer ? "#2563EB" : "#7C3AED" }}> ({prefilledEmail})</Text> : ""}, username, and password.
+            </Text>
+            <TouchableOpacity
+              style={[modalStyles.button, { backgroundColor: isTargetBuyer ? "#2563EB" : "#7C3AED" }]}
+              onPress={() => {
+                setShowNoticeModal(false);
+                router.push({
+                  pathname: "/Buyer/Authentication/RegisterScreen",
+                  params: {
+                    role: isTargetBuyer ? "buyer" : "seller",
+                    email: prefilledEmail,
+                    username: prefilledUsername,
+                  },
+                });
+              }}
+              activeOpacity={0.88}
+            >
+              <Text style={modalStyles.buttonText}>
+                {isTargetBuyer ? "Register as Buyer Now" : "Register as Seller Now"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
 export default RoleSelectionScreen;
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  content: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 24,
+    alignItems: "center",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  iconBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#F3E8FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  message: {
+    fontSize: 14,
+    color: "#4B5563",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  button: {
+    width: "100%",
+    height: 48,
+    backgroundColor: "#7C3AED",
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+});
 
 const styles = StyleSheet.create({
   container: {

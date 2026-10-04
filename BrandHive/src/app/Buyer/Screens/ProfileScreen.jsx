@@ -64,13 +64,22 @@ const ProfileScreen = () => {
       ]);
     } else {
       Alert.alert(
-        "Become a Seller 🚀",
-        "Would you like to list your advertising spaces and start receiving booking requests?",
+        "Register as Seller Required",
+        `You are currently registered only as a Buyer. To switch to Seller mode, please select 'I am a Space Owner' (Seller) on the Role Selection screen and register using your existing email (${user?.email || ""}) and username (${user?.username || ""}).`,
         [
           { text: "Cancel", style: "cancel" },
           {
-            text: "Register as Seller",
-            onPress: () => router.push("/Profile/screens/SellerOnboardingScreen"),
+            text: "Go to Role Selection",
+            onPress: () =>
+              router.push({
+                pathname: "/Buyer/Authentication/RoleSelectionScreen",
+                params: {
+                  email: user?.email,
+                  username: user?.username,
+                  targetRole: "seller",
+                  showNoticeModal: "true",
+                },
+              }),
           },
         ]
       );
@@ -177,14 +186,10 @@ const ProfileScreen = () => {
             <SettingsRow
               icon="swap-horizontal-outline"
               iconColor="#7C3AED"
-              title={hasSellerRole ? "Switch to Seller Mode" : "Become a Seller"}
-              subtitle={
-                hasSellerRole
-                  ? "Access your Seller Dashboard"
-                  : "List ad spaces & receive bookings"
-              }
-              badge={hasSellerRole ? "Seller Active" : "New"}
-              badgeColor={hasSellerRole ? "#7C3AED" : "#10B981"}
+              title="Switch to Seller Mode"
+              subtitle="Access your Seller Dashboard"
+              badge={hasSellerRole ? "Seller Active" : null}
+              badgeColor={hasSellerRole ? "#7C3AED" : undefined}
               onPress={handleSwitchRole}
               isLast={true}
             />

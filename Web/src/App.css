@@ -69,11 +69,41 @@ img {
   margin: 0 auto;
 }
 
-/* Grid Layout Systems */
-.responsive-card-grid {
+.responsive-card-grid,
+.responsive-ad-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 24px;
+}
+
+.responsive-ad-grid.buyer-ad-grid {
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 1280px) {
+  .responsive-ad-grid {
+    grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+    gap: 20px;
+  }
+  .responsive-ad-grid.buyer-ad-grid {
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .responsive-ad-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+}
+
+@media (max-width: 580px) {
+  .responsive-ad-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }
 
 .responsive-grid-2 {

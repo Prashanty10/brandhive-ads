@@ -1,8 +1,8 @@
 import User from "../Models/userModel.js";
 import SellerProfile from "../Models/sellerProfileModel.js";
 import jwt from "jsonwebtoken";
-import ForgetOtpModel from "../Models/ForgetotpModel.js";
-import VerifyOtpModel from "../Models/VerifyotpModel.js";
+import ForgetOtpModel from "../Models/forgetotpModel.js";
+import VerifyOtpModel from "../Models/verifyotpModel.js";
 
 import { generateForgetOtp, generateVerifyOtp } from "../Utils/otp.js";
 import verifyemailotp from "../Utils/emailverification.js";
@@ -583,8 +583,7 @@ export const NewpasswordHandler = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Profile updated successfully",
-      user,
+      message: "Password updated successfully",
     });
   } catch (error) {
     res.status(500).json({

@@ -504,15 +504,12 @@ const DiscoverPage = () => {
               </div>
             ) : (
               <div>
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))",
-                  gap: "20px"
-                }}>
+                <div className="responsive-ad-grid">
                   {filteredOfflineSpaces.map((space) => (
                     <SpaceCard
                       key={space._id || space.id || Math.random()}
                       space={space}
+                      mode="buyer"
                       onClick={handleSpaceClick}
                     />
                   ))}

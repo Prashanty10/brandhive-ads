@@ -17,16 +17,28 @@ const authMiddleware = async (req, res, next) => {
         message: "Invalid token format",
       });
     }
-    const token = authHeader.split(" ")[1];
 
-    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    const token = authHeader.split(" ")[1];
+    const secret = process.env.ACCESS_TOKEN_SECRET;
+
+    if (!secret) {
+      console.error("ACCESS_TOKEN_SECRET environment variable is missing.");
+      return res.status(500).json({
+        success: false,
+        message: "Server configuration error",
+      });
+    }
+
+    const decoded = jwt.verify(token, secret);
+
+    const userId = decoded._id || decoded.userId || decoded.id;
 
     req.user = {
       ...decoded,
-      _id: decoded._id || decoded.userId || decoded.id,
-      id: decoded._id || decoded.userId || decoded.id,
-      userId: decoded._id || decoded.userId || decoded.id,
-      roles: decoded.roles || ["buyer"],
+      _id: userId,
+      id: userId,
+      userId: userId,
+      roles: Array.isArray(decoded.roles) ? decoded.roles : ["buyer"],
       activeRole: decoded.activeRole || "buyer",
     };
 
@@ -41,12 +53,29 @@ const authMiddleware = async (req, res, next) => {
 
 export const authorizeRole = (...roles) => {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.activeRole)) {
-      return res.status(403).json({
+    if (!req.user) {
+      return res.status(401).json({
         success: false,
-        message: "Access denied. Insufficient role permissions.",
+        message: "Unauthorized: User authentication required",
       });
     }
+
+    // Admins bypass role restrictions
+    if (req.user.roles?.includes("admin") || req.user.activeRole === "admin") {
+      return next();
+    }
+
+    const hasRole = roles.some(
+      (role) => req.user.activeRole === role || req.user.roles?.includes(role)
+    );
+
+    if (!hasRole) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: Insufficient role permissions",
+      });
+    }
+
     next();
   };
 };

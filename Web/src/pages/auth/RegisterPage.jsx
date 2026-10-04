@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import {
   Mail,
@@ -21,10 +21,12 @@ import {
 const RegisterPage = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const initialState = location.state || {};
 
-  const [role, setRole] = useState("buyer"); // 'buyer' | 'seller'
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
+  const [role, setRole] = useState(initialState.role || "buyer"); // 'buyer' | 'seller'
+  const [username, setUsername] = useState(initialState.username || "");
+  const [email, setEmail] = useState(initialState.email || "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(true);
@@ -48,8 +50,17 @@ const RegisterPage = () => {
     try {
       setLoading(true);
       sessionStorage.setItem("pendingOtpEmail", email.trim());
-      await register(username.trim(), email.trim(), password, role);
-      navigate("/auth/verify-otp", { state: { email: email.trim() } });
+      const res = await register(username.trim(), email.trim(), password, role);
+
+      if (res?.isVerified) {
+        if (role === "seller") {
+          navigate("/seller/dashboard");
+        } else {
+          navigate("/buyer/home");
+        }
+      } else {
+        navigate("/auth/verify-otp", { state: { email: email.trim() } });
+      }
     } catch (err) {
       setError(err?.message || "Registration failed. Please try again.");
     } finally {
@@ -261,6 +272,27 @@ const RegisterPage = () => {
               }}>
                 <AlertCircle size={18} style={{ flexShrink: 0 }} />
                 <span>{error}</span>
+              </div>
+            )}
+
+            {/* Seller Registration Notice Banner */}
+            {(initialState.fromBuyerSwitch || (role === "seller" && initialState.email)) && (
+              <div style={{
+                backgroundColor: "#F3E8FF",
+                border: "1px solid #D8B4FE",
+                color: "#6B21A8",
+                borderRadius: "12px",
+                padding: "12px 14px",
+                fontSize: "13px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                marginBottom: "20px"
+              }}>
+                <Sparkles size={18} style={{ flexShrink: 0 }} color="#7C3AED" />
+                <span>
+                  Registering as <strong>Space Owner (Seller)</strong> with your existing account ({initialState.email}). Enter your details to activate Seller mode!
+                </span>
               </div>
             )}
 

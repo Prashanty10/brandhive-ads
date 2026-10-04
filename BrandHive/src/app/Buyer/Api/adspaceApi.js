@@ -92,6 +92,19 @@ export const toggleAdSpaceStatusApi = async (id, status) => {
 };
 
 /**
+ * Delete advertisement space (Seller)
+ */
+export const deleteAdSpaceApi = async (id) => {
+  try {
+    const response = await api.delete(`/adspaces/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting adspace:", error);
+    throw error.response?.data || error;
+  }
+};
+
+/**
  * Create a real booking (Buyer)
  */
 export const createBookingApi = async (bookingData) => {

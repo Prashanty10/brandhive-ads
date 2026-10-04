@@ -30,11 +30,43 @@ const Navbar = ({ onOpenAuthModal }) => {
 
   const handleSwitchRole = async () => {
     const targetRole = activeRole === "seller" ? "buyer" : "seller";
+    const hasTargetRole = user?.roles && Array.isArray(user.roles) && user.roles.includes(targetRole);
+
+    setMobileMenuOpen(false);
+    setDropdownOpen(false);
+
+    if (!hasTargetRole) {
+      if (targetRole === "seller") {
+        alert(
+          `Register as Seller Required:\n\nYou are currently registered only as a Buyer. To switch to Seller mode, please select 'I am a Space Owner' (Seller) on the registration screen and register using your existing email (${user?.email || ""}), username (${user?.username || ""}), and password.`
+        );
+        navigate("/auth/register", {
+          state: {
+            role: "seller",
+            email: user?.email,
+            username: user?.username,
+            fromBuyerSwitch: true,
+          },
+        });
+      } else {
+        alert(
+          `Register as Buyer Required:\n\nYou are currently registered only as a Seller. To switch to Buyer mode, please select 'I am an Advertiser' (Buyer) on the registration screen and register using your existing email (${user?.email || ""}), username (${user?.username || ""}), and password.`
+        );
+        navigate("/auth/register", {
+          state: {
+            role: "buyer",
+            email: user?.email,
+            username: user?.username,
+            fromSellerSwitch: true,
+          },
+        });
+      }
+      return;
+    }
+
     try {
       setSwitching(true);
       await switchRole(targetRole);
-      setMobileMenuOpen(false);
-      setDropdownOpen(false);
       if (targetRole === "seller") {
         navigate("/seller/dashboard");
       } else {
@@ -134,26 +166,6 @@ const Navbar = ({ onOpenAuthModal }) => {
           }}>
             Nearby
           </Link>
-          <Link to="/buyer/map" style={{
-            padding: "8px 16px",
-            borderRadius: "9999px",
-            fontSize: "14px",
-            fontWeight: isActive("/buyer/map") ? "700" : "500",
-            color: isActive("/buyer/map") ? "#111827" : "#6B7280",
-            backgroundColor: isActive("/buyer/map") ? "#F3F4F6" : "transparent"
-          }}>
-            Map
-          </Link>
-          <a href="#footer" style={{
-            padding: "8px 16px",
-            borderRadius: "9999px",
-            fontSize: "14px",
-            fontWeight: "500",
-            color: "#6B7280",
-            textDecoration: "none"
-          }}>
-            Contact
-          </a>
         </nav>
       )}
 
@@ -425,25 +437,6 @@ const Navbar = ({ onOpenAuthModal }) => {
                 >
                   <MapPin size={18} color={isActive("/buyer/nearby") ? "#2563EB" : "#6B7280"} />
                   Nearby
-                </Link>
-
-                <Link
-                  to="/buyer/map"
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    padding: "12px 16px",
-                    borderRadius: "12px",
-                    fontSize: "15px",
-                    fontWeight: isActive("/buyer/map") ? "700" : "500",
-                    color: isActive("/buyer/map") ? "#111827" : "#4B5563",
-                    backgroundColor: isActive("/buyer/map") ? "#F3F4F6" : "transparent"
-                  }}
-                >
-                  <Map size={18} color={isActive("/buyer/map") ? "#2563EB" : "#6B7280"} />
-                  Map
                 </Link>
               </>
             )}

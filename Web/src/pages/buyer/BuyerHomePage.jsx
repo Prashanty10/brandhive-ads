@@ -559,16 +559,12 @@ const BuyerHomePage = () => {
                   </div>
                 ) : (
                   <>
-                    <div style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fill, minmax(350px, 1fr))",
-                      gap: "24px",
-                      marginBottom: "32px"
-                    }}>
+                    <div className="responsive-ad-grid buyer-ad-grid" style={{ marginBottom: "32px" }}>
                       {visibleCategoryOfflineSpaces.map((space) => (
                         <SpaceCard
                           key={space._id || space.id || Math.random()}
                           space={space}
+                          mode="buyer"
                           onClick={handleSpaceClick}
                         />
                       ))}

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Sidebar from "../../components/seller/Sidebar";
+import Modal from "../../components/common/Modal";
 import { createAdSpaceApi, updateAdSpaceApi, getAdSpaceByIdApi } from "../../api/adspaceApi";
+import { CATEGORY_FIELDS } from "../../config/categoryFields";
 import {
   Megaphone,
   MapPin,
@@ -20,7 +22,8 @@ import {
   Clock,
   Layers,
   UploadCloud,
-  Edit3
+  Edit3,
+  ArrowRight
 } from "lucide-react";
 
 const CATEGORY_OPTIONS = [
@@ -104,9 +107,17 @@ const CreateAdvertisementPage = () => {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
 
-  // Specifications
+  // Specifications (Dynamic Category Specific Specs)
   const [lightingType, setLightingType] = useState("Frontlit");
   const [dimensions, setDimensions] = useState("20ft x 10ft");
+  const [mediumSpecs, setMediumSpecs] = useState({});
+
+  const selectedCategoryKey = (categoryKey || "billboard").toLowerCase();
+  const dynamicFields = CATEGORY_FIELDS[selectedCategoryKey] || CATEGORY_FIELDS.billboard;
+
+  const handleSpecChange = (fieldId, value) => {
+    setMediumSpecs((prev) => ({ ...prev, [fieldId]: value }));
+  };
 
   // Media Images
   const [currentImageInput, setCurrentImageInput] = useState("");
@@ -119,6 +130,7 @@ const CreateAdvertisementPage = () => {
   const [fetchingEditData, setFetchingEditData] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
 
   // Load space details if in edit mode
   useEffect(() => {
@@ -152,6 +164,7 @@ const CreateAdvertisementPage = () => {
           const specs = data.specifications || {};
           if (specs.lightingType) setLightingType(specs.lightingType);
           if (specs.dimensions) setDimensions(specs.dimensions);
+          setMediumSpecs(specs);
 
           if (Array.isArray(data.images) && data.images.length > 0) {
             setImages(data.images);
@@ -360,8 +373,9 @@ const CreateAdvertisementPage = () => {
           longitude: longitude.trim() ? parseFloat(longitude.trim()) : undefined
         },
         specifications: {
-          lightingType,
-          dimensions
+          ...mediumSpecs,
+          lightingType: mediumSpecs.lighting || lightingType,
+          dimensions: mediumSpecs.dimensions || dimensions
         },
         images: images.length > 0 ? images : ["https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?w=800&auto=format&fit=crop&q=80"]
       };
@@ -373,9 +387,7 @@ const CreateAdvertisementPage = () => {
       }
 
       setSuccess(true);
-      setTimeout(() => {
-        navigate("/seller/advertisements");
-      }, 1200);
+      setSuccessModalOpen(true);
     } catch (err) {
       setError(err?.message || `Failed to ${editId ? "update" : "publish"} ad space. Please verify all fields.`);
     } finally {
@@ -788,35 +800,49 @@ const CreateAdvertisementPage = () => {
                 </div>
               </div>
 
-              {/* SECTION 6: Specifications */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                <div>
-                  <label style={{ fontSize: "13px", fontWeight: "700", color: "#374151", marginBottom: "6px", display: "block" }}>
-                    Lighting Type
-                  </label>
-                  <select
-                    value={lightingType}
-                    onChange={(e) => setLightingType(e.target.value)}
-                    style={{ width: "100%", height: "42px", padding: "0 12px", borderRadius: "10px", border: "1px solid #E5E7EB", fontSize: "13px" }}
-                  >
-                    <option value="Frontlit">Frontlit</option>
-                    <option value="Backlit">Backlit</option>
-                    <option value="Digital 4K LED">Digital 4K LED</option>
-                    <option value="Non-lit">Non-lit</option>
-                  </select>
-                </div>
+              {/* SECTION 6: Dynamic Category Specifications */}
+              <div style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: "18px", padding: "20px" }}>
+                <h4 style={{ fontSize: "14px", fontWeight: "800", color: "#111827", marginBottom: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Layers size={16} color="#2563EB" />
+                  <span>Category-Specific Specifications ({categoryKey})</span>
+                </h4>
 
-                <div>
-                  <label style={{ fontSize: "13px", fontWeight: "700", color: "#374151", marginBottom: "6px", display: "block" }}>
-                    Dimensions (W x H)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 20ft x 10ft"
-                    value={dimensions}
-                    onChange={(e) => setDimensions(e.target.value)}
-                    style={{ width: "100%", height: "42px", padding: "0 12px", borderRadius: "10px", border: "1px solid #E5E7EB", fontSize: "13px" }}
-                  />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                  {dynamicFields.map((field) => (
+                    <div key={field.id}>
+                      <label style={{ fontSize: "12px", fontWeight: "700", color: "#374151", marginBottom: "6px", display: "block" }}>
+                        {field.label} {field.required ? "*" : ""}
+                      </label>
+                      {field.type === "select" ? (
+                        <select
+                          value={mediumSpecs[field.id] || (field.id === "lighting" ? lightingType : "")}
+                          onChange={(e) => {
+                            handleSpecChange(field.id, e.target.value);
+                            if (field.id === "lighting") setLightingType(e.target.value);
+                            if (field.id === "dimensions") setDimensions(e.target.value);
+                          }}
+                          style={{ width: "100%", height: "42px", padding: "0 12px", borderRadius: "10px", border: "1px solid #E5E7EB", fontSize: "13px", backgroundColor: "#FFFFFF" }}
+                        >
+                          <option value="">Select {field.label}</option>
+                          {field.options.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          required={field.required}
+                          placeholder={field.placeholder}
+                          value={mediumSpecs[field.id] || (field.id === "dimensions" ? dimensions : "")}
+                          onChange={(e) => {
+                            handleSpecChange(field.id, e.target.value);
+                            if (field.id === "dimensions") setDimensions(e.target.value);
+                          }}
+                          style={{ width: "100%", height: "42px", padding: "0 12px", borderRadius: "10px", border: "1px solid #E5E7EB", fontSize: "13px", backgroundColor: "#FFFFFF" }}
+                        />
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -1005,6 +1031,131 @@ const CreateAdvertisementPage = () => {
           </div>
         </div>
       </main>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={successModalOpen}
+        onClose={() => setSuccessModalOpen(false)}
+        maxWidth="500px"
+      >
+        <div style={{ textAlign: "center", padding: "12px 8px" }}>
+          {/* Celebratory Icon */}
+          <div
+            style={{
+              width: "72px",
+              height: "72px",
+              borderRadius: "50%",
+              backgroundColor: "#ECFDF5",
+              color: "#059669",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 20px auto",
+              boxShadow: "0 8px 20px rgba(5, 150, 105, 0.15)"
+            }}
+          >
+            <CheckCircle2 size={40} color="#059669" />
+          </div>
+
+          <h3
+            style={{
+              fontSize: "24px",
+              fontWeight: "900",
+              color: "#111827",
+              letterSpacing: "-0.5px",
+              marginBottom: "8px"
+            }}
+          >
+            {editId ? "Ad Space Updated Successfully!" : "Ad Space Published Successfully! 🎉"}
+          </h3>
+
+          <p
+            style={{
+              fontSize: "14px",
+              color: "#6B7280",
+              lineHeight: "1.6",
+              marginBottom: "20px"
+            }}
+          >
+            Your advertisement space listing <strong>"{title}"</strong> has been successfully {editId ? "updated" : "created and published"} on BrandHive. Buyers can now discover and book your ad space.
+          </p>
+
+          {/* Space Summary Details Card */}
+          <div
+            style={{
+              backgroundColor: "#F9FAFB",
+              border: "1px solid #E5E7EB",
+              borderRadius: "16px",
+              padding: "16px",
+              textAlign: "left",
+              marginBottom: "24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+              <span style={{ color: "#6B7280", fontWeight: "600" }}>Listing Name:</span>
+              <span style={{ color: "#111827", fontWeight: "800" }}>{title}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+              <span style={{ color: "#6B7280", fontWeight: "600" }}>Category:</span>
+              <span style={{ color: "#2563EB", fontWeight: "800" }}>{categoryKey}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+              <span style={{ color: "#6B7280", fontWeight: "600" }}>Location:</span>
+              <span style={{ color: "#111827", fontWeight: "700" }}>{city}, {state}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+              <span style={{ color: "#6B7280", fontWeight: "600" }}>Rate:</span>
+              <span style={{ color: "#059669", fontWeight: "800" }}>₹{Number(price).toLocaleString("en-IN")} / {priceUnit}</span>
+            </div>
+          </div>
+
+          {/* Modal Action Buttons */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <button
+              onClick={() => navigate("/seller/advertisements")}
+              className="btn btn-blue btn-lg"
+              style={{ width: "100%", justifyContent: "center", gap: "8px" }}
+            >
+              <span>View My Advertisements</span>
+              <ArrowRight size={16} />
+            </button>
+
+            {!editId && (
+              <button
+                onClick={() => {
+                  setSuccessModalOpen(false);
+                  setTitle("");
+                  setPrice("");
+                  setDescription("");
+                  setImages(["https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?w=800&auto=format&fit=crop&q=80"]);
+                }}
+                className="btn btn-secondary btn-md"
+                style={{ width: "100%", justifyContent: "center" }}
+              >
+                + Create Another Ad Space
+              </button>
+            )}
+
+            <button
+              onClick={() => navigate("/seller/dashboard")}
+              style={{
+                backgroundColor: "transparent",
+                border: "none",
+                color: "#6B7280",
+                fontSize: "13px",
+                fontWeight: "700",
+                cursor: "pointer",
+                padding: "8px"
+              }}
+            >
+              Go to Seller Dashboard
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

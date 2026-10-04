@@ -172,13 +172,13 @@ const userSchema = new mongoose.Schema(
 
     roles: {
       type: [String],
-      enum: ["buyer", "seller"],
+      enum: ["buyer", "seller", "admin"],
       default: ["buyer"],
     },
 
     activeRole: {
       type: String,
-      enum: ["buyer", "seller"],
+      enum: ["buyer", "seller", "admin"],
       default: "buyer",
     },
 

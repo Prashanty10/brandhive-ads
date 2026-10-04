@@ -28,6 +28,7 @@ import {
   getMyAdvertisementsApi,
   updateAdSpaceApi,
   toggleAdSpaceStatusApi,
+  deleteAdSpaceApi,
 } from "../../Buyer/Api/adspaceApi";
 import usePaginatedList from "../../Buyer/components/common/usePaginatedList";
 import StatusBadge from "../components/StatusBadge";
@@ -154,6 +155,33 @@ const AdvertisementsScreen = () => {
     } catch (err) {
       Alert.alert("Error", err.message || "Failed to toggle status.");
     }
+  };
+
+  const handleDeleteAdSpace = (adItem) => {
+    Alert.alert(
+      "Delete Advertisement Space",
+      `Are you sure you want to delete "${adItem.title || "this ad space"}"? This action cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const res = await deleteAdSpaceApi(adItem._id);
+              if (res?.success) {
+                setAdvertisements((prev) =>
+                  prev.filter((item) => item._id !== adItem._id)
+                );
+                Alert.alert("Deleted 🎉", "Ad space listing deleted successfully.");
+              }
+            } catch (err) {
+              Alert.alert("Delete Failed", err?.message || "Failed to delete ad space.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const formatPrice = (price) => {
@@ -293,7 +321,7 @@ const AdvertisementsScreen = () => {
               })
             }
           >
-            <Ionicons name="open-outline" size={14} color={colors.textPrimary} />
+            <Ionicons name="open-outline" size={13} color={colors.textPrimary} />
             <Text style={styles.actionBtnText}>View</Text>
           </TouchableOpacity>
 
@@ -301,7 +329,7 @@ const AdvertisementsScreen = () => {
             style={styles.actionBtn}
             onPress={() => handleOpenEdit(item)}
           >
-            <Ionicons name="create-outline" size={14} color={colors.primary} />
+            <Ionicons name="create-outline" size={13} color={colors.primary} />
             <Text style={[styles.actionBtnText, { color: colors.primary }]}>Edit</Text>
           </TouchableOpacity>
 
@@ -314,17 +342,25 @@ const AdvertisementsScreen = () => {
           >
             <Ionicons
               name={item.status === "active" ? "pause-circle-outline" : "play-circle-outline"}
-              size={14}
-              color={item.status === "active" ? "#EF4444" : "#10B981"}
+              size={13}
+              color={item.status === "active" ? "#D97706" : "#10B981"}
             />
             <Text
               style={[
                 styles.actionBtnText,
-                { color: item.status === "active" ? "#EF4444" : "#10B981" },
+                { color: item.status === "active" ? "#D97706" : "#10B981" },
               ]}
             >
-              {item.status === "active" ? "Deactivate" : "Activate"}
+              {item.status === "active" ? "Pause" : "Activate"}
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.deleteBtn]}
+            onPress={() => handleDeleteAdSpace(item)}
+          >
+            <Ionicons name="trash-outline" size={13} color="#DC2626" />
+            <Text style={[styles.actionBtnText, { color: "#DC2626" }]}>Delete</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -797,7 +833,7 @@ const styles = StyleSheet.create({
 
   actionsRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 6,
     paddingTop: 4,
   },
   actionBtn: {
@@ -805,25 +841,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-    height: 38,
-    borderRadius: 12,
+    gap: 3,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.white,
+    paddingHorizontal: 4,
   },
   actionBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: colors.textPrimary,
   },
   deactivateBtn: {
-    borderColor: "#FEE2E2",
-    backgroundColor: "#FEF2F2",
+    borderColor: "#FEF3C7",
+    backgroundColor: "#FFFBEB",
   },
   activateBtn: {
     borderColor: "#D1FAE5",
     backgroundColor: "#ECFDF5",
+  },
+  deleteBtn: {
+    borderColor: "#FEE2E2",
+    backgroundColor: "#FEF2F2",
   },
 
   // Modal Overlay

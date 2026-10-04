@@ -19,15 +19,14 @@ import {
 import colors from "../../../Theme/colors";
 import { useLocalSearchParams } from "expo-router";
 import { RegisterApi } from "../Api/userApi";
-import BrandHiveLogo from "../components/common/BrandHiveLogo";
 const RegisterScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const initialRole = params.role ? String(params.role).toLowerCase() : "buyer";
 
   const [role, setRole] = useState(initialRole);
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState(params.username ? String(params.username) : "");
+  const [email, setEmail] = useState(params.email ? String(params.email) : "");
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
   const [agreeTerms, setAgreeTerms] = useState(false);
@@ -87,7 +86,8 @@ const RegisterScreen = () => {
 
     setIsLoading(true);
     try {
-      const res = await RegisterApi(username.trim(), email.trim(), password, initialRole);
+      const targetRole = role || initialRole;
+      const res = await RegisterApi(username.trim(), email.trim(), password, targetRole);
 
       if (res?.isVerified) {
         if (!res.isProfileCompleted) {
@@ -95,7 +95,7 @@ const RegisterScreen = () => {
             pathname: "/Buyer/Authentication/ProfileSetupScreen",
             params: { email: email.trim(), username: username.trim() },
           });
-        } else if (initialRole === "seller") {
+        } else if (targetRole === "seller") {
           router.replace("/Seller/Screens/DashboardScreen");
         } else {
           router.replace("/Buyer/Screens/HomeScreen");
@@ -142,8 +142,9 @@ const RegisterScreen = () => {
           </TouchableOpacity>
         </View>
         <View style={styles.titleContainer}>
-          <BrandHiveLogo size="large" style={{ marginBottom: 12 }} />
-          <Text style={styles.titleText}>Create your account</Text>
+          <Text style={styles.titleText}>
+            {initialRole === "seller" ? "Create your Seller account" : "Create your account"}
+          </Text>
         </View>
         <View style={styles.socialRow}>
           <TouchableOpacity style={styles.socialButton} activeOpacity={0.8}>
