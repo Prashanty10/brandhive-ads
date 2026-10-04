@@ -16,7 +16,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import colors from "../../../Theme/colors";
-import BrandHiveLogo from "../components/common/BrandHiveLogo";
 
 const RoleSelectionScreen = () => {
   const router = useRouter();
@@ -154,7 +153,6 @@ const RoleSelectionScreen = () => {
         ]}
       >
         <View style={styles.titleWrapper}>
-          <BrandHiveLogo size="large" style={{ alignSelf: "center", marginBottom: 12 }} />
           <Text style={styles.subtitle}>How would you like to get started?</Text>
         </View>
 
