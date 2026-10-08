@@ -72,8 +72,8 @@ img {
 .responsive-card-grid,
 .responsive-ad-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 20px;
 }
 
 .responsive-ad-grid.buyer-ad-grid {
@@ -82,10 +82,7 @@ img {
 }
 
 @media (max-width: 1280px) {
-  .responsive-ad-grid {
-    grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-    gap: 20px;
-  }
+  .responsive-ad-grid,
   .responsive-ad-grid.buyer-ad-grid {
     grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
     gap: 16px;

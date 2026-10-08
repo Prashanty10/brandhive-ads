@@ -67,15 +67,43 @@ export const adspacecontroller = async (req, res) => {
       return res.status(400).json({ success: false, message: "Price must be a valid non-negative number." });
     }
 
-    // Location validation
-    let lat = location?.latitude != null ? Number(location.latitude) : null;
-    let lng = location?.longitude != null ? Number(location.longitude) : null;
+    // Location validation & manual coordinates extraction
+    let rawLat = location?.latitude !== undefined && location?.latitude !== "" ? location.latitude : req.body.latitude;
+    let rawLng = location?.longitude !== undefined && location?.longitude !== "" ? location.longitude : req.body.longitude;
 
-    if (lat == null || isNaN(lat) || lat < -90 || lat > 90) {
-      return res.status(400).json({ success: false, message: "Latitude must be between -90 and 90." });
+    if ((rawLat === undefined || rawLat === null || rawLat === "") && Array.isArray(location?.geo?.coordinates) && location.geo.coordinates.length === 2) {
+      rawLng = location.geo.coordinates[0];
+      rawLat = location.geo.coordinates[1];
     }
-    if (lng == null || isNaN(lng) || lng < -180 || lng > 180) {
-      return res.status(400).json({ success: false, message: "Longitude must be between -180 and 180." });
+
+    let lat = rawLat != null && rawLat !== "" ? Number(rawLat) : null;
+    let lng = rawLng != null && rawLng !== "" ? Number(rawLng) : null;
+
+    // Fallback if coordinates were missing or invalid (e.g. user specified city/state but no manual lat/lng)
+    if (lat == null || isNaN(lat) || lat < -90 || lat > 90 || lng == null || isNaN(lng) || lng < -180 || lng > 180) {
+      const cityLower = (location?.city || req.body.city || "").toLowerCase().trim();
+      const cityCoords = {
+        mumbai: [19.076, 72.8777],
+        delhi: [28.6139, 77.209],
+        bangalore: [12.9716, 77.5946],
+        bengaluru: [12.9716, 77.5946],
+        hyderabad: [17.385, 78.4867],
+        ahmedabad: [23.0225, 72.5714],
+        chennai: [13.0827, 80.2707],
+        kolkata: [22.5726, 88.3639],
+        pune: [18.5204, 73.8567],
+        jaipur: [26.9124, 75.7873],
+        surat: [21.1702, 72.8311],
+        lucknow: [26.8467, 80.9462],
+      };
+
+      if (cityLower && cityCoords[cityLower]) {
+        lat = cityCoords[cityLower][0];
+        lng = cityCoords[cityLower][1];
+      } else {
+        lat = 19.076;
+        lng = 72.8777;
+      }
     }
 
     // Process images (Upload base64 strings to Cloudinary if needed)
@@ -237,10 +265,15 @@ export const updateAdSpace = async (req, res) => {
       updates.price = priceNum;
     }
 
-    if (updates.location?.latitude != null && updates.location?.longitude != null) {
-      const lat = Number(updates.location.latitude);
-      const lng = Number(updates.location.longitude);
-      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+    let updateLat = updates.location?.latitude ?? updates.latitude;
+    let updateLng = updates.location?.longitude ?? updates.longitude;
+    if (updateLat != null && updateLng != null && updateLat !== "" && updateLng !== "") {
+      const lat = Number(updateLat);
+      const lng = Number(updateLng);
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        if (!updates.location) updates.location = { ...existingAd.location };
+        updates.location.latitude = lat;
+        updates.location.longitude = lng;
         updates.location.geo = {
           type: "Point",
           coordinates: [lng, lat],

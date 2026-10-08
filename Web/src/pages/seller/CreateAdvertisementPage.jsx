@@ -158,8 +158,10 @@ const CreateAdvertisementPage = () => {
           if (loc.city || data.city) setCity(loc.city || data.city || "");
           if (loc.state || data.state) setState(loc.state || data.state || "");
           if (loc.address || data.address) setAddress(loc.address || data.address || "");
-          if (loc.latitude != null || data.latitude != null) setLatitude(String(loc.latitude ?? data.latitude));
-          if (loc.longitude != null || data.longitude != null) setLongitude(String(loc.longitude ?? data.longitude));
+          const adLat = loc.latitude ?? data.latitude ?? loc.geo?.coordinates?.[1] ?? loc.coordinates?.[1];
+          const adLng = loc.longitude ?? data.longitude ?? loc.geo?.coordinates?.[0] ?? loc.coordinates?.[0];
+          if (adLat != null && adLat !== "") setLatitude(String(adLat));
+          if (adLng != null && adLng !== "") setLongitude(String(adLng));
 
           const specs = data.specifications || {};
           if (specs.lightingType) setLightingType(specs.lightingType);
@@ -347,6 +349,9 @@ const CreateAdvertisementPage = () => {
     try {
       setLoading(true);
 
+      const parsedLat = latitude.trim() !== "" && !isNaN(parseFloat(latitude.trim())) ? parseFloat(latitude.trim()) : undefined;
+      const parsedLng = longitude.trim() !== "" && !isNaN(parseFloat(longitude.trim())) ? parseFloat(longitude.trim()) : undefined;
+
       const payload = {
         title: title.trim(),
         category: categoryKey,
@@ -363,14 +368,14 @@ const CreateAdvertisementPage = () => {
         city: city.trim(),
         state: state.trim(),
         address: address.trim(),
-        latitude: latitude.trim() ? parseFloat(latitude.trim()) : undefined,
-        longitude: longitude.trim() ? parseFloat(longitude.trim()) : undefined,
+        latitude: parsedLat,
+        longitude: parsedLng,
         location: {
           city: city.trim(),
           state: state.trim(),
           address: address.trim(),
-          latitude: latitude.trim() ? parseFloat(latitude.trim()) : undefined,
-          longitude: longitude.trim() ? parseFloat(longitude.trim()) : undefined
+          latitude: parsedLat,
+          longitude: parsedLng
         },
         specifications: {
           ...mediumSpecs,

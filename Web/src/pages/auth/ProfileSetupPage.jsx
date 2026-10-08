@@ -13,8 +13,14 @@ const ProfileSetupPage = () => {
   const [mobileNumber, setMobileNumber] = useState(user?.mobileNumber || user?.mobile || "");
   const [city, setCity] = useState(user?.city || "");
   const [state, setState] = useState(user?.state || "");
-  const [latitude, setLatitude] = useState(user?.latitude ? String(user.latitude) : "");
-  const [longitude, setLongitude] = useState(user?.longitude ? String(user.longitude) : "");
+  const [latitude, setLatitude] = useState(() => {
+    const lat = user?.latitude ?? user?.location?.coordinates?.[1];
+    return lat != null ? String(lat) : "";
+  });
+  const [longitude, setLongitude] = useState(() => {
+    const lng = user?.longitude ?? user?.location?.coordinates?.[0];
+    return lng != null ? String(lng) : "";
+  });
   const [bio, setBio] = useState(user?.bio || "");
   const [profileImage, setProfileImage] = useState(
     user?.profileImage || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop"
@@ -32,8 +38,10 @@ const ProfileSetupPage = () => {
       if (user.mobileNumber || user.mobile) setMobileNumber(user.mobileNumber || user.mobile);
       if (user.city) setCity(user.city);
       if (user.state) setState(user.state);
-      if (user.latitude) setLatitude(String(user.latitude));
-      if (user.longitude) setLongitude(String(user.longitude));
+      const userLat = user.latitude ?? user.location?.coordinates?.[1];
+      const userLng = user.longitude ?? user.location?.coordinates?.[0];
+      if (userLat != null && userLat !== "") setLatitude(String(userLat));
+      if (userLng != null && userLng !== "") setLongitude(String(userLng));
       if (user.bio) setBio(user.bio);
       if (user.profileImage) setProfileImage(user.profileImage);
     }
@@ -115,9 +123,10 @@ const ProfileSetupPage = () => {
     return null;
   };
 
-  // Debounced auto-analysis of City & State -> Lat/Lng
+  // Debounced auto-analysis of City & State -> Lat/Lng ONLY IF lat/lng are currently empty
   useEffect(() => {
     if (!city.trim() && !state.trim()) return;
+    if (latitude.trim() && longitude.trim()) return;
     const timer = setTimeout(() => {
       handleAnalyseCityState(city, state, true);
     }, 800);

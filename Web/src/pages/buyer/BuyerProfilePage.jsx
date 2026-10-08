@@ -66,12 +66,14 @@ const BuyerProfilePage = () => {
   );
   const [city, setCity] = useState(user?.city || "");
   const [state, setState] = useState(user?.state || "");
-  const [latitude, setLatitude] = useState(
-    user?.latitude ? String(user.latitude) : ""
-  );
-  const [longitude, setLongitude] = useState(
-    user?.longitude ? String(user.longitude) : ""
-  );
+  const [latitude, setLatitude] = useState(() => {
+    const lat = user?.latitude ?? user?.location?.coordinates?.[1];
+    return lat != null ? String(lat) : "";
+  });
+  const [longitude, setLongitude] = useState(() => {
+    const lng = user?.longitude ?? user?.location?.coordinates?.[0];
+    return lng != null ? String(lng) : "";
+  });
   const [bio, setBio] = useState(user?.bio || "");
   const [profileImage, setProfileImage] = useState(user?.profileImage || "");
 
@@ -109,8 +111,10 @@ const BuyerProfilePage = () => {
       setMobileNumber(user.mobileNumber || user.mobile || "");
       setCity(user.city || "");
       setState(user.state || "");
-      if (user.latitude) setLatitude(String(user.latitude));
-      if (user.longitude) setLongitude(String(user.longitude));
+      const userLat = user.latitude ?? user.location?.coordinates?.[1];
+      const userLng = user.longitude ?? user.location?.coordinates?.[0];
+      if (userLat != null && userLat !== "") setLatitude(String(userLat));
+      if (userLng != null && userLng !== "") setLongitude(String(userLng));
       setBio(user.bio || "");
       setProfileImage(user.profileImage || "");
 
@@ -214,9 +218,10 @@ const BuyerProfilePage = () => {
     return null;
   };
 
-  // Debounced auto-geocoding on City/State change
+  // Debounced auto-geocoding on City/State change ONLY IF lat/lng are currently empty
   useEffect(() => {
     if (!city.trim() && !state.trim()) return;
+    if (latitude.trim() && longitude.trim()) return;
     const timer = setTimeout(() => {
       handleAnalyseCoords(city, state, true);
     }, 800);

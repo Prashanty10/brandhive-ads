@@ -233,7 +233,9 @@ const AdvertisementCard = ({
           />
           <span>
             {mode === "seller"
-              ? status.toUpperCase()
+              ? isInactive
+                ? "INACTIVE"
+                : "AVAILABLE NOW"
               : isAvailable
               ? "AVAILABLE NOW"
               : "BOOKED"}
@@ -461,8 +463,8 @@ const AdvertisementCard = ({
                     onEdit(space);
                   }}
                   style={{
-                    padding: "6px 10px",
-                    borderRadius: "8px",
+                    padding: "7px 12px",
+                    borderRadius: "10px",
                     border: "1px solid #BFDBFE",
                     backgroundColor: "#EFF6FF",
                     color: "#2563EB",
@@ -471,7 +473,8 @@ const AdvertisementCard = ({
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    gap: "4px"
+                    gap: "4px",
+                    transition: "all 0.2s ease"
                   }}
                 >
                   <Edit2 size={12} />
@@ -488,8 +491,8 @@ const AdvertisementCard = ({
                     onToggleStatus(space);
                   }}
                   style={{
-                    padding: "6px 10px",
-                    borderRadius: "8px",
+                    padding: "7px 12px",
+                    borderRadius: "10px",
                     border: `1px solid ${isInactive ? "#A7F3D0" : "#FDE68A"}`,
                     backgroundColor: isInactive ? "#ECFDF5" : "#FFFBEB",
                     color: isInactive ? "#059669" : "#D97706",
@@ -498,7 +501,8 @@ const AdvertisementCard = ({
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    gap: "4px"
+                    gap: "4px",
+                    transition: "all 0.2s ease"
                   }}
                 >
                   {isInactive ? <PlayCircle size={12} /> : <PauseCircle size={12} />}
@@ -515,8 +519,8 @@ const AdvertisementCard = ({
                     onDelete(space._id || space.id);
                   }}
                   style={{
-                    padding: "6px 9px",
-                    borderRadius: "8px",
+                    padding: "7px 10px",
+                    borderRadius: "10px",
                     border: "1px solid #FCA5A5",
                     backgroundColor: "#FEF2F2",
                     color: "#DC2626",
@@ -525,7 +529,8 @@ const AdvertisementCard = ({
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    gap: "4px"
+                    gap: "4px",
+                    transition: "all 0.2s ease"
                   }}
                 >
                   <Trash2 size={12} />

@@ -105,7 +105,7 @@ const SellerAdvertisementsPage = () => {
             </Link>
           </div>
         ) : (
-          <div className="responsive-ad-grid">
+          <div className="responsive-ad-grid buyer-ad-grid">
             {spaces.map((space) => (
               <AdvertisementCard
                 key={space._id || space.id}

@@ -432,12 +432,18 @@ export const ProfileHandler = async (req, res) => {
       isProfileCompleted: true,
     };
 
-    if (location && Array.isArray(location.coordinates) && location.coordinates.length === 2) {
-      updateFields.location = location;
-    } else if (latitude !== undefined && longitude !== undefined && latitude !== "" && longitude !== "") {
-      const lat = parseFloat(latitude);
-      const lng = parseFloat(longitude);
-      if (!isNaN(lat) && !isNaN(lng)) {
+    let inputLat = latitude !== undefined && latitude !== "" ? latitude : location?.latitude;
+    let inputLng = longitude !== undefined && longitude !== "" ? longitude : location?.longitude;
+
+    if (inputLat === undefined && Array.isArray(location?.coordinates) && location.coordinates.length === 2) {
+      inputLng = location.coordinates[0];
+      inputLat = location.coordinates[1];
+    }
+
+    if (inputLat != null && inputLng != null && inputLat !== "" && inputLng !== "") {
+      const lat = parseFloat(inputLat);
+      const lng = parseFloat(inputLng);
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
         updateFields.location = {
           type: "Point",
           coordinates: [lng, lat],
@@ -457,10 +463,18 @@ export const ProfileHandler = async (req, res) => {
       });
     }
 
+    const userObj = user.toObject();
+    delete userObj.password;
+    delete userObj.refreshToken;
+    if (Array.isArray(userObj.location?.coordinates) && userObj.location.coordinates.length === 2) {
+      userObj.longitude = userObj.location.coordinates[0];
+      userObj.latitude = userObj.location.coordinates[1];
+    }
+
     res.status(200).json({
       success: true,
       message: "Profile updated successfully",
-      user,
+      user: userObj,
     });
   } catch (error) {
     res.status(500).json({
@@ -637,9 +651,15 @@ export const GetCurrentUserHandler = async (req, res) => {
       });
     }
 
+    const userObj = user.toObject();
+    if (Array.isArray(userObj.location?.coordinates) && userObj.location.coordinates.length === 2) {
+      userObj.longitude = userObj.location.coordinates[0];
+      userObj.latitude = userObj.location.coordinates[1];
+    }
+
     return res.status(200).json({
       success: true,
-      user,
+      user: userObj,
     });
   } catch (error) {
     return res.status(500).json({
