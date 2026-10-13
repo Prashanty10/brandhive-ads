@@ -357,7 +357,7 @@ const BuyerHomePage = () => {
         padding: "70px 24px 85px 24px",
         minHeight: "420px",
         backgroundImage:
-  "linear-gradient(180deg, rgba(17, 24, 39, 0.2) 0%, rgba(17, 24, 39, 0.4) 100%), url('https://i.pinimg.com/1200x/e3/60/b8/e360b8bcb826d37721a499bc4888e8dc.jpg')",
+  "linear-gradient(180deg, rgba(17, 24, 39, 0.2) 0%, rgba(17, 24, 39, 0.4) 100%), url('https://images.unsplash.com/photo-1616418625172-c607e16733ca?q=80&w=1738&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D')",
         backgroundSize: "cover",
         backgroundPosition: "center",
         display: "flex",
